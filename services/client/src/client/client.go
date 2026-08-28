@@ -2,7 +2,9 @@ package client
 
 import (
 	// imports de la libreria estandar
+	"bufio" // para leer y escribir en archivos linea por linea
 	"net"
+	"os" // acceder a variables de entorno, crear y leer archivo, etc.
 	"time"
 
 	// imports de terceros
@@ -21,6 +23,8 @@ type ClientConfig struct {
 	ServerHost string
 	ServerPort string
 	AgencyId   string
+	InputFile  string
+	OutputFile string
 }
 
 type Client struct {
@@ -64,39 +68,72 @@ func connectToServer(host, port string) (net.Conn, error) {
 }
 
 func (client *Client) Run() error {
-	const mainAction = "test-echo-server"
+	const mainAction = "process-input-file-from-server"
+	logger.Info(mainAction, logger.InProgress, "config.input-file", client.config.InputFile, "config.output-file", client.config.OutputFile)
+
 	defer client.conn.Close() // ejecuta este comando al final de la función, sin importar si hubo error o no (similar a un 'finally' en otros lenguajes)
 
-	// envia N mensajes al servidor y espera la respuesta de cada uno
-	for messageId := range ECHO_CLIENT_MESSAGE_AMOUNT {
-		// slice, para pasar argumentos al logger
-		messageArgs := []any{"agency-id", client.config.AgencyId, "message-id", messageId}
-		logger.Info(mainAction, logger.InProgress, messageArgs...)
+	// abre el archivo de entrada para leerlo
+	inputFile, err := os.Open(client.config.InputFile)
+	if err != nil {
+		logger.Error("open-input-file", logger.Fail)
+		return err
+	}
+	defer inputFile.Close()
 
-		clientMessage := client.config.AgencyId
+	// crea el archivo de salida para escribir en él (si ya existe lo reemplaza)
+	outputFile, err := os.Create(client.config.OutputFile)
+	if err != nil {
+		logger.Error("create-output-file", logger.Fail)
+		return err
+	}
+	defer outputFile.Close()
 
-		// convierte el string en bytes
-		// manda esos bytes al servidor
+	// crea un scanner asociado al archivo. lee linea por linea por default
+	scanner := bufio.NewScanner(inputFile)
+
+	// lee cada linea del archivo de entrada, la manda al servidor y escribe la respuesta en el archivo de salida
+	for scanner.Scan() {
+		clientMessage := scanner.Text() // obtiene la linea leida (sin el salto de linea)
+
+		logger.Info(
+			mainAction,
+			logger.InProgress,
+			"agency-id", client.config.AgencyId,
+		)
+
+		// manda la linea leida al servidor y espera la respuesta
 		if err := safe_socket.SendAll(client.conn, []byte(clientMessage)); err != nil {
-			logger.Error("send-message", logger.Fail, messageArgs...)
+			logger.Error("send-message", logger.Fail)
 			return err
 		}
 
-		// espera la respuesta del servidor
+		// recibe la respuesta
 		responseBuffer, err := safe_socket.RecvAll(client.conn, ECHO_CLIENT_BUFFER_SIZE)
 		if err != nil {
-			logger.Error("recv-response", logger.Fail, messageArgs...)
+			logger.Error("recv-response", logger.Fail)
 			return err
 		}
-
-		// convierte los bytes en string y compara con el mensaje original (verifica el echo)
-		if string(responseBuffer) != clientMessage {
-			logger.Error("check-response", logger.Fail, messageArgs...)
+		// y la escribe en el archivo de salida
+		_, err = outputFile.Write(responseBuffer)
+		if err != nil {
+			logger.Error("write-output-file", logger.Fail)
 			return err
 		}
-
-		time.Sleep(ECHO_CLIENT_MESSAGE_DELAY_MS * time.Millisecond)
+		// agrega el salto de linea
+		_, err = outputFile.WriteString("\n")
+		if err != nil {
+			logger.Error("write-output-file", logger.Fail)
+			return err
+		}
 	}
+
+	// si hubo un error al leer el archivo scanner.Scan() devuelve false y el error se guarda en scanner.Err()
+	if err := scanner.Err(); err != nil {
+		logger.Error("read-input-file", logger.Fail)
+		return err
+	}
+
 	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
 
 	return nil

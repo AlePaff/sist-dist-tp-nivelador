@@ -26,6 +26,19 @@ $ ./scripts/2_verificar_servidor.sh
 Hello World
 ```
 
+### Ejercicio 3
+Ejemplo de ejecución. luego de "make up"
 
+Configurar INPUTFILE y OUTPUTFILE en docker-compose.yaml
+
+```bash
+client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress config.input-file=/input/input-0.csv config.output-file=/output/output-0.csv
+client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=success agency-id=0
+```
 
 
