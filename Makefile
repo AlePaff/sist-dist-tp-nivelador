@@ -18,5 +18,5 @@ logs:
 .PHONY: logs
 
 test:
-	PYTHONPATH="$(PWD)" python3 tests/run.py
+	PYTHONPATH="$(PWD)" python tests/run.py
 .PHONY: test
