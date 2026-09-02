@@ -42,3 +42,8 @@ client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server resul
 ```
 
 
+
+### Ejercicio 4
+el problema es que por TCP se puede enviar 50 bytes y recibir solo 25, o primero 25 y luego los otros 25 (short write). Entonces para solucionarlo se deberia enviar todo, mediante un loop por ejemplo 
+
+
