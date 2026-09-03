@@ -47,3 +47,31 @@ client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server resul
 el problema es que por TCP se puede enviar 50 bytes y recibir solo 25, o primero 25 y luego los otros 25 (short write). Entonces para solucionarlo se deberia enviar todo, mediante un loop por ejemplo 
 
 
+
+### Ejercicio 5
+Una apuesta tiene 6 campos, el agency_id se obtiene del docker compose, mientras que los otros 5 datos de un .csv por ejemplo
+Ver bet.py
+
+
+El protocolo es muy sencillo, cada paquete tiene
+┌────────┬──────────┬─────────────────┐
+│ TYPE   │ LENGTH   │ PAYLOAD         │
+│ 1 byte │ 4 bytes  │ N bytes         │
+└────────┴──────────┴─────────────────┘
+
+con 
+1 = BET
+2 = END
+3 = WINNERS
+
+
+El cliente envia el archivo de apuestas dividiendo cada linea por una apuesta enviando un paquete diferente de acuerdo al protocolo definido anteriormente
+y recibe tambien un bet pero de los ganadores??
+
+El servidor recibe estas apuestas, procesa todas y luego le envia a cada cliente los ganadores
+
+
+
+
+
+
