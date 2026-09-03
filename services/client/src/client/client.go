@@ -67,6 +67,7 @@ func connectToServer(host, port string) (net.Conn, error) {
 	return conn, err
 }
 
+// *Client ==> se usan punteros por rendimiento, ya que en Go todo se copia por valor (si tengo datos muy grande para evitar copiarlo todo, uso un puntero)
 func (client *Client) Run() error {
 	const mainAction = "process-input-file-from-server"
 	logger.Info(mainAction, logger.InProgress, "config.input-file", client.config.InputFile, "config.output-file", client.config.OutputFile)

@@ -32,6 +32,7 @@ func RecvAll(socket io.Reader, size int) ([]byte, error) {
 	buff := make([]byte, size)
 	totalReceived := 0
 
+	// antes RecvAll hacía un solo Read(); ahora hace tantos Read() como sean necesarios hasta conseguir exactamente size bytes
 	for totalReceived < size {
 		// recibe la cantidad de bytes que faltan para completar el tamaño solicitado y si hay un error lo devuelve
 		n, err := socket.Read(buff[totalReceived:])
