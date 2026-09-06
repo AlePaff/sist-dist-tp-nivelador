@@ -154,7 +154,7 @@ func recibirGanadores(client *Client) error {
 	}
 
 	// imprimir payload y tipo de mensaje
-	logger.Info("receive-winners", logger.InProgress, "message-type", message.Type, "payload", string(message.Payload))
+	logger.Info("receive-winners", logger.InProgress, "TIPO DE MSG", message.Type, "payload", string(message.Payload))
 
 	winners, err := protocol.DeserializeWinners(message.Payload)
 	if err != nil {

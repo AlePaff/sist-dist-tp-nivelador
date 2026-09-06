@@ -1,6 +1,6 @@
 import socket
 import logger
-from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, deserialize_bet, receive_message, send_message, serialize_winner
+from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, deserialize_bet, receive_message, send_message, serialize_winners
 from lottery.lottery import Lottery
 
 
@@ -47,21 +47,18 @@ class Server:
             if self.lottery.has_won(bet):
                 winners.append(bet)
 
-        # envia mensajes individuales de ganadores a cada cliente
-        for winner in winners:
-            print(f"Ganador: {winner}")
-            # Serializamos y enviamos los ganadores.
-            payload = serialize_winner(winner)
+        print(f"Ganadores: {winners}")
+        # Serializamos y enviamos los ganadores.
+        payload = serialize_winners(winners)
 
-            send_message(
-                client_socket,
-                MESSAGE_TYPE_WINNERS,
-                payload,
-            )
+        send_message(
+            client_socket,
+            MESSAGE_TYPE_WINNERS,
+            payload,
+        )
 
-            # TODO: Para mas adelante, habria que enviar un mensaje "end" para que el cliente sepa que ya no hay mas ganadores
+        print("Ganadores enviados al cliente. Fin.")
 
-        print("Termino de informar ganadores")
 
 
 

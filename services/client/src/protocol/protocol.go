@@ -113,18 +113,24 @@ func DeserializeWinners(data []byte) ([]Bet, error) {
 
 	winners := make([]Bet, 0, len(fields))
 
+	logger.Info("deserialize-winners", logger.InProgress, "fields", fields)
+
 	for _, field := range fields {
 		if field == "" {
 			continue
 		}
 
 		bet, err := DeserializeBet([]byte(field))
+		logger.Info("deserialize-winners", logger.InProgress, "bet", bet, "err", err)
 		if err != nil {
 			return nil, err
 		}
 
 		winners = append(winners, bet)
 	}
+
+	// imrpimir los ganadores deserializados
+	logger.Info("deserialize-winners", logger.InProgress, "winners", winners)
 
 	return winners, nil
 }
