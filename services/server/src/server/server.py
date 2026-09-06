@@ -8,11 +8,11 @@ class Server:
     def __init__(self, server_host: str, server_port: int) -> None:
         self.server_host = server_host
         self.server_port = server_port
+        self.lottery = Lottery("/data/bets.csv")
         
 
     def _handle_client(self, client_socket):
         action = "handle-client"
-        message_amount = 0
         try:
             logger.info(action, logger.LogResult.in_progress)
             while True:
@@ -24,13 +24,39 @@ class Server:
                     print("Apuesta recibida:")
                     print(bet)
 
+                    self.lottery.store_bets([bet])
+
                 elif message_type == MESSAGE_TYPE_END:
                     print(f"El cliente {bet.agency_id} terminó de enviar apuestas")
+                    break
         except Exception as e:
-            logger.error(
-                action, logger.LogResult.fail, "messages-amount", message_amount
-            )
+
             raise e
+
+
+        # NOTE: por ahora solo un cliente, luego se hace un quorum para saber a cuantos clientes esperar
+        bets = self.lottery.load_bets()
+        print("Cant apuestas recibidas:", len(list(bets)))
+        winners = []
+
+        for bet in bets:
+            print(f"Evaluando apuesta: {bet}")
+            if self.lottery.has_won(bet):
+                winners.append(bet)
+
+        print(f"Ganadores: {winners}")
+        # Serializamos y enviamos los ganadores.
+        payload = serialize_winners(winners)
+
+        send_message(
+            client_socket,
+            MESSAGE_TYPE_WINNERS,
+            payload,
+        )
+
+
+
+
 
     def run(self):
         action = "accept-connection"

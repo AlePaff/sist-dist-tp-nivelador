@@ -126,13 +126,56 @@ func (client *Client) Run() error {
 		return err
 	}
 
+	logger.Info(mainAction, logger.InProgress, "cliente termina de enviar apuestas -------")
 	// enviar mensaje para finalizar (end)
 	err = protocol.SendMessage(client.conn, protocol.MessageTypeEnd, []byte{})
 	if err != nil {
 		return err
 	}
 
+	// recibir mensaje de ganadores
+	err = recibirGanadores(client)
+
 	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
+
+	return nil
+}
+
+func recibirGanadores(client *Client) error {
+	// recibe mensaje ganadores
+	message, err := protocol.ReceiveMessage(client.conn)
+	if err != nil {
+		return err
+	}
+
+	if message.Type != protocol.MessageTypeWinners {
+		logger.Error("receive-winners", logger.Fail, "unexpected-message-type", message.Type)
+		return err
+	}
+
+	winners, err := protocol.DeserializeWinners(message.Payload)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("receive-winners", logger.Success, "ganadores recibido: ", winners)
+
+	// guardar en archivo de salida
+	outputFile, err := os.Create(client.config.OutputFile)
+
+	for _, winner := range winners {
+		_, err := outputFile.WriteString(
+			winner.FirstName + "," +
+				winner.LastName + "," +
+				winner.Document + "," +
+				winner.Birthdate + "," +
+				winner.Number + "\n",
+		)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

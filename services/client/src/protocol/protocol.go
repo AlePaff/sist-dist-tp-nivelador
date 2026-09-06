@@ -13,8 +13,9 @@ import (
 tipos de mensajes
 */
 const (
-	MessageTypeBet byte = 1
-	MessageTypeEnd byte = 2
+	MessageTypeBet     byte = 1
+	MessageTypeEnd     byte = 2
+	MessageTypeWinners byte = 3
 )
 
 type Message struct {
@@ -102,4 +103,25 @@ func DeserializeBet(data []byte) (Bet, error) {
 		Birthdate: fields[4],
 		Number:    fields[5],
 	}, nil
+}
+
+func DeserializeWinners(data []byte) ([]Bet, error) {
+	fields := strings.Split(string(data), "\n")
+
+	winners := make([]Bet, 0, len(fields))
+
+	for _, field := range fields {
+		if field == "" {
+			continue
+		}
+
+		bet, err := DeserializeBet([]byte(field))
+		if err != nil {
+			return nil, err
+		}
+
+		winners = append(winners, bet)
+	}
+
+	return winners, nil
 }
