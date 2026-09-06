@@ -5,11 +5,12 @@ import (
 	"bufio" // para leer y escribir en archivos linea por linea
 	"net"
 	"os" // acceder a variables de entorno, crear y leer archivo, etc.
+	"strings"
 	"time"
 
 	// imports de terceros
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/logger"
-	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/safe_socket"
+	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/protocol"
 )
 
 const CONNECTION_ATTEMPTS_MAX = 3
@@ -95,36 +96,26 @@ func (client *Client) Run() error {
 
 	// lee cada linea del archivo de entrada, la manda al servidor y escribe la respuesta en el archivo de salida
 	for scanner.Scan() {
-		clientMessage := scanner.Text() // obtiene la linea leida (sin el salto de linea)
+		fields := strings.Split(scanner.Text(), ",")
 
-		logger.Info(
-			mainAction,
-			logger.InProgress,
-			"agency-id", client.config.AgencyId,
-		)
+		logger.Info(mainAction, logger.InProgress, "agency-id", client.config.AgencyId, "fields", fields)
 
-		// manda la linea leida al servidor y espera la respuesta
-		if err := safe_socket.SendAll(client.conn, []byte(clientMessage)); err != nil {
-			logger.Error("send-message", logger.Fail)
+		bet := protocol.Bet{
+			AgencyID:  client.config.AgencyId,
+			FirstName: fields[0],
+			LastName:  fields[1],
+			Document:  fields[2],
+			Birthdate: fields[3],
+			Number:    fields[4],
+		}
+
+		payload, err := protocol.SerializeBet(bet)
+		if err != nil {
 			return err
 		}
 
-		// recibe la respuesta
-		responseBuffer, err := safe_socket.RecvAll(client.conn, ECHO_CLIENT_BUFFER_SIZE)
+		err = protocol.SendMessage(client.conn, protocol.MessageTypeBet, payload)
 		if err != nil {
-			logger.Error("recv-response", logger.Fail)
-			return err
-		}
-		// y la escribe en el archivo de salida
-		_, err = outputFile.Write(responseBuffer)
-		if err != nil {
-			logger.Error("write-output-file", logger.Fail)
-			return err
-		}
-		// agrega el salto de linea
-		_, err = outputFile.WriteString("\n")
-		if err != nil {
-			logger.Error("write-output-file", logger.Fail)
 			return err
 		}
 	}
@@ -132,6 +123,12 @@ func (client *Client) Run() error {
 	// si hubo un error al leer el archivo scanner.Scan() devuelve false y el error se guarda en scanner.Err()
 	if err := scanner.Err(); err != nil {
 		logger.Error("read-input-file", logger.Fail)
+		return err
+	}
+
+	// enviar mensaje para finalizar (end)
+	err = protocol.SendMessage(client.conn, protocol.MessageTypeEnd, []byte{})
+	if err != nil {
 		return err
 	}
 

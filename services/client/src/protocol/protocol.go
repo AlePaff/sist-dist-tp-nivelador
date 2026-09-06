@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/safe_socket"
@@ -59,25 +58,28 @@ func ReceiveMessage(socket io.Reader) (Message, error) {
 	}, nil
 }
 
+// para evitar convertir de string a entero al leer, para luego serializar y enviarlo, luego convertirlo de nuevo a entero
+//
+//	al recibirlo y deserializarlo, se dejan todos como string
 type Bet struct {
-	AgencyID  uint32
+	AgencyID  string
 	FirstName string
 	LastName  string
-	Document  uint32
+	Document  string
 	Birthdate string
-	Number    uint32
+	Number    string
 }
 
 // recibe una apuesta y la serieliza en un slice de bytes
 // el payload va separado por comas
 func SerializeBet(bet Bet) ([]byte, error) {
 	fields := []string{
-		strconv.FormatUint(uint64(bet.AgencyID), 10), // 10 es la base decimal
+		bet.AgencyID,
 		bet.FirstName,
 		bet.LastName,
-		strconv.FormatUint(uint64(bet.Document), 10),
+		bet.Document,
 		bet.Birthdate,
-		strconv.FormatUint(uint64(bet.Number), 10),
+		bet.Number,
 	}
 
 	return []byte(strings.Join(fields, ",")), nil
@@ -92,27 +94,12 @@ func DeserializeBet(data []byte) (Bet, error) {
 		return Bet{}, fmt.Errorf("invalid bet: expected 6 fields, got %d", len(fields))
 	}
 
-	agencyID, err := strconv.ParseUint(fields[0], 10, 32)
-	if err != nil {
-		return Bet{}, fmt.Errorf("invalid agency id: %w", err)
-	}
-
-	document, err := strconv.ParseUint(fields[3], 10, 32)
-	if err != nil {
-		return Bet{}, fmt.Errorf("invalid document: %w", err)
-	}
-
-	number, err := strconv.ParseUint(fields[5], 10, 32)
-	if err != nil {
-		return Bet{}, fmt.Errorf("invalid number: %w", err)
-	}
-
 	return Bet{
-		AgencyID:  uint32(agencyID),
+		AgencyID:  fields[0],
 		FirstName: fields[1],
 		LastName:  fields[2],
-		Document:  uint32(document),
+		Document:  fields[3],
 		Birthdate: fields[4],
-		Number:    uint32(number),
+		Number:    fields[5],
 	}, nil
 }
