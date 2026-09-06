@@ -1,6 +1,7 @@
 import socket
 import logger
-from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, deserialize_bet, receive_message
+from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, deserialize_bet, receive_message, send_message, serialize_winners
+from lottery.lottery import Lottery
 
 
 class Server:

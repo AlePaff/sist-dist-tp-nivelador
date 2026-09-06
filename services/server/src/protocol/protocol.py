@@ -1,12 +1,10 @@
 import struct
-
 import safe_socket
-from src_frozen.lottery.bet import Bet
-
+from lottery.bet import Bet
 
 MESSAGE_TYPE_BET = 1
 MESSAGE_TYPE_END = 2
-
+MESSAGE_TYPE_WINNERS = 3
 
 def send_message(socket, message_type, payload):
     packet = struct.pack("!BI", message_type, len(payload)) + payload     # !BI significa: ! = big-endian, B = unsigned char (1 byte), I = unsigned int (4 bytes)
@@ -54,3 +52,20 @@ def deserialize_bet(data):
         birthdate=fields[4],
         number=int(fields[5]),
     )
+
+
+def serialize_winners(winners):
+    lines = []
+
+    for bet in winners:
+        line = ",".join([
+            bet.first_name,
+            bet.last_name,
+            str(bet.document),
+            bet.birthdate,
+            str(bet.number),
+        ])
+
+        lines.append(line)
+
+    return "\n".join(lines).encode()

@@ -10,9 +10,6 @@ services:
       - SERVER_PORT=5678
     ports: 
       - "5678:5678"     # expone un puerto del contenedor al host (sintaxis: PUERTO_HOST:PUERTO_CONTENEDOR)
-    volumes:
-      # sube dos niveles desde ./services/server para buscar src_frozen y lo monta dentro del contenedor en /src/src_frozen
-      - ./services/server/src_frozen:/src/src_frozen
 
   client_0:
     build:      # indica que docker debe construir la imagen del cliente a partir del Dockerfile ubicado en ./services/client
