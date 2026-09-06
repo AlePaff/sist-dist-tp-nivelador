@@ -54,18 +54,15 @@ def deserialize_bet(data):
     )
 
 
-def serialize_winners(winners):
-    lines = []
+def serialize_winner(winner: Bet):
+    line = ",".join([
+        winner.first_name,
+        winner.last_name,
+        str(winner.document),
+        winner.birthdate,
+        str(winner.number),
+    ])
 
-    for bet in winners:
-        line = ",".join([
-            bet.first_name,
-            bet.last_name,
-            str(bet.document),
-            bet.birthdate,
-            str(bet.number),
-        ])
+    print("ganador serializado: ", line)
+    return line.encode()
 
-        lines.append(line)
-
-    return "\n".join(lines).encode()
