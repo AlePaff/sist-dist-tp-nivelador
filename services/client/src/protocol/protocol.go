@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/logger"
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/safe_socket"
 )
 
@@ -52,6 +53,8 @@ func ReceiveMessage(socket io.Reader) (Message, error) {
 	if err != nil {
 		return Message{}, err
 	}
+
+	logger.Info("receive-message", logger.InProgress, "AAAAAAAAAAAAAAAA", messageType, "payload-size", payloadSize)
 
 	return Message{
 		Type:    messageType,

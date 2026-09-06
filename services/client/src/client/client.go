@@ -126,7 +126,7 @@ func (client *Client) Run() error {
 		return err
 	}
 
-	logger.Info(mainAction, logger.InProgress, "cliente termina de enviar apuestas -------")
+	logger.Info(mainAction, logger.InProgress, "mensajito", "cliente termina de enviar apuestas -------")
 	// enviar mensaje para finalizar (end)
 	err = protocol.SendMessage(client.conn, protocol.MessageTypeEnd, []byte{})
 	if err != nil {
@@ -153,12 +153,15 @@ func recibirGanadores(client *Client) error {
 		return err
 	}
 
+	// imprimir payload y tipo de mensaje
+	logger.Info("receive-winners", logger.InProgress, "message-type", message.Type, "payload", string(message.Payload))
+
 	winners, err := protocol.DeserializeWinners(message.Payload)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("receive-winners", logger.Success, "ganadores recibido: ", winners)
+	logger.Info("receive-winners", logger.Success, "ganadores recibidos: ", winners)
 
 	// guardar en archivo de salida
 	outputFile, err := os.Create(client.config.OutputFile)

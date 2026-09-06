@@ -8,6 +8,9 @@ class Server:
     def __init__(self, server_host: str, server_port: int) -> None:
         self.server_host = server_host
         self.server_port = server_port
+        # vaciar archivo bets.csv al iniciar el servidor. Si no existe crearlo
+        with open("/data/bets.csv", "w") as f:
+            f.write("")
         self.lottery = Lottery("/data/bets.csv")
         
 
@@ -21,8 +24,7 @@ class Server:
                 if message_type == MESSAGE_TYPE_BET:
                     bet = deserialize_bet(payload)
 
-                    print("Apuesta recibida:")
-                    print(bet)
+                    print("Apuesta recibida:", bet)
 
                     self.lottery.store_bets([bet])
 
@@ -35,9 +37,10 @@ class Server:
 
 
         # NOTE: por ahora solo un cliente, luego se hace un quorum para saber a cuantos clientes esperar
-        bets = self.lottery.load_bets()
-        print("Cant apuestas recibidas:", len(list(bets)))
+        bets = list(self.lottery.load_bets())       # aca se consume el iterador
+        print("Cant apuestas recibidas:", len(bets))
         winners = []
+
 
         for bet in bets:
             print(f"Evaluando apuesta: {bet}")

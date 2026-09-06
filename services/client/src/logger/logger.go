@@ -19,7 +19,7 @@ func buildMessage(action string, result LogResult) string {
 
 func Info(action string, result LogResult, args ...any) {
 	message := buildMessage(action, result)
-	slog.Info(message, args...)
+	slog.Info(message, args...) // siempre tienen que ser pares de clave-valor
 }
 
 func Warn(action string, result LogResult, args ...any) {
