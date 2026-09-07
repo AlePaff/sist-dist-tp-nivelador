@@ -17,6 +17,7 @@ const (
 	MessageTypeBet     byte = 1
 	MessageTypeEnd     byte = 2
 	MessageTypeWinners byte = 3
+	BetsSeparator           = "\n"
 )
 
 type Message struct {
@@ -89,6 +90,22 @@ func SerializeBet(bet Bet) ([]byte, error) {
 	return []byte(strings.Join(fields, ",")), nil
 }
 
+// va serializando las apuestas por batch en binario separadas por \n
+func SerializeBetsBatch(bets []Bet) ([]byte, error) {
+	lines := make([]string, 0, len(bets))
+
+	for _, bet := range bets {
+		data, err := SerializeBet(bet)
+		if err != nil {
+			return nil, err
+		}
+
+		lines = append(lines, string(data))
+	}
+
+	return []byte(strings.Join(lines, BetsSeparator)), nil
+}
+
 // recibe un slice de bytes y lo deserializa en una apuesta Bet
 func DeserializeBet(data []byte) (Bet, error) {
 	fields := strings.Split(string(data), ",")
@@ -109,8 +126,7 @@ func DeserializeBet(data []byte) (Bet, error) {
 }
 
 func DeserializeWinners(data []byte) ([]Bet, error) {
-	BETS_SEPARATOR := "\n"
-	fields := strings.Split(string(data), BETS_SEPARATOR)
+	fields := strings.Split(string(data), BetsSeparator)
 
 	winners := make([]Bet, 0, len(fields))
 

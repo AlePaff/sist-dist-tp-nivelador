@@ -36,6 +36,19 @@ def serialize_bet(bet):
     return ",".join(fields).encode("utf-8")
 
 
+# separa todas las apuestas por \n y deserializa cada una de ellas
+def deserialize_bets_batch(data):
+    lines = data.decode("utf-8").split(BETS_SEPARATOR)
+
+    bets = []
+
+    for line in lines:
+        if not line:
+            continue
+
+        bets.append(deserialize_bet(line.encode("utf-8")))
+
+    return bets
 
 def deserialize_bet(data):
     fields = data.decode("utf-8").split(",")

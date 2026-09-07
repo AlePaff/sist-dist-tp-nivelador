@@ -1,6 +1,6 @@
 import socket
 import logger
-from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, deserialize_bet, receive_message, send_message, serialize_winners
+from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, deserialize_bets_batch, receive_message, send_message, serialize_winners
 from lottery.lottery import Lottery
 
 
@@ -30,14 +30,14 @@ class Server:
             message_type, payload = receive_message(client_socket)
 
             if message_type == MESSAGE_TYPE_BET:
-                bet = deserialize_bet(payload)
+                betsBatch = deserialize_bets_batch(payload)
 
-                print("Apuesta recibida:", bet)
+                print("Batch recibido:", betsBatch)
 
-                self.lottery.store_bets([bet])
+                self.lottery.store_bets([betsBatch])
 
             elif message_type == MESSAGE_TYPE_END:
-                print(f"El cliente {bet.agency_id} terminó de enviar apuestas")
+                print(f"El cliente {betsBatch.agency_id} terminó de enviar apuestas")
                 break
 
     def _calculate_winners(self):

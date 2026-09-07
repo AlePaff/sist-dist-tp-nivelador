@@ -104,10 +104,10 @@ func enviarApuestas(client *Client) error {
 		return err
 	}
 	defer outputFile.Close()
-
 	// crea un scanner asociado al archivo. lee linea por linea por default
 	scanner := bufio.NewScanner(inputFile)
 
+	batch := make([]protocol.Bet, 0, client.config.BatchSize)
 	// lee cada linea del archivo de entrada, la manda al servidor y escribe la respuesta en el archivo de salida
 	for scanner.Scan() {
 		fields := strings.Split(scanner.Text(), ",")
@@ -123,15 +123,27 @@ func enviarApuestas(client *Client) error {
 			Number:    fields[4],
 		}
 
-		payload, err := protocol.SerializeBet(bet)
-		if err != nil {
-			return err
-		}
+		batch = append(batch, bet)
 
-		err = protocol.SendMessage(client.conn, protocol.MessageTypeBet, payload)
-		if err != nil {
+		// enviar batch, sigue el mismo comportamiento que el ejercicio5 si es batch_siz = 1
+		if len(batch) == client.config.BatchSize {
+			if err := enviarBatch(client.conn, batch); err != nil {
+				return err
+			}
+
+			batch = batch[:0] // vaciar el batch para la siguiente iteración
+		}
+	}
+	// si no se llenó el batch, enviar lo que quedó
+	if len(batch) > 0 {
+		if err := enviarBatch(client.conn, batch); err != nil {
 			return err
 		}
+	}
+
+	// enviar mensaje de que termino de enviar batch
+	if err := protocol.SendMessage(client.conn, protocol.MessageTypeEnd, []byte{}); err != nil {
+		return err
 	}
 
 	// si hubo un error al leer el archivo scanner.Scan() devuelve false y el error se guarda en scanner.Err()
@@ -140,12 +152,22 @@ func enviarApuestas(client *Client) error {
 		return err
 	}
 
-	logger.Info("send-bets", logger.InProgress, "mensajito", "cliente termina de enviar apuestas -------")
-	// enviar mensaje para finalizar (end)
-	err = protocol.SendMessage(client.conn, protocol.MessageTypeEnd, []byte{})
+	return nil
+}
+
+func enviarBatch(client_conn net.Conn, batch []protocol.Bet) error {
+	payload, err := protocol.SerializeBetsBatch(batch)
 	if err != nil {
 		return err
 	}
+
+	// enviar mensaje
+	err = protocol.SendMessage(client_conn, protocol.MessageTypeBet, payload)
+	if err != nil {
+		return err
+	}
+	logger.Info("send-bets", logger.InProgress, "mensajito", "cliente manda batch -------")
+
 	return nil
 }
 
