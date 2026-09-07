@@ -15,32 +15,36 @@ class Server:
         
 
     def _handle_client(self, client_socket):
-        action = "handle-client"
         try:
-            logger.info(action, logger.LogResult.in_progress)
-            while True:
-                message_type, payload = receive_message(client_socket)
+            logger.info("handle-client", logger.LogResult.in_progress)
 
-                if message_type == MESSAGE_TYPE_BET:
-                    bet = deserialize_bet(payload)
-
-                    print("Apuesta recibida:", bet)
-
-                    self.lottery.store_bets([bet])
-
-                elif message_type == MESSAGE_TYPE_END:
-                    print(f"El cliente {bet.agency_id} terminó de enviar apuestas")
-                    break
+            self._receive_bets(client_socket)
+            winners = self._calculate_winners()
+            self._send_winners(winners, client_socket)
+    
         except Exception as e:
-
             raise e
 
+    def _receive_bets(self, client_socket):
+        while True:
+            message_type, payload = receive_message(client_socket)
 
+            if message_type == MESSAGE_TYPE_BET:
+                bet = deserialize_bet(payload)
+
+                print("Apuesta recibida:", bet)
+
+                self.lottery.store_bets([bet])
+
+            elif message_type == MESSAGE_TYPE_END:
+                print(f"El cliente {bet.agency_id} terminó de enviar apuestas")
+                break
+
+    def _calculate_winners(self):
         # NOTE: por ahora solo un cliente, luego se hace un quorum para saber a cuantos clientes esperar
         bets = list(self.lottery.load_bets())       # aca se consume el iterador
         print("Cant apuestas recibidas:", len(bets))
         winners = []
-
 
         for bet in bets:
             print(f"Evaluando apuesta: {bet}")
@@ -48,6 +52,9 @@ class Server:
                 winners.append(bet)
 
         print(f"Ganadores: {winners}")
+        return winners
+
+    def _send_winners(self, winners, client_socket):
         # Serializamos y enviamos los ganadores.
         payload = serialize_winners(winners)
 
@@ -59,10 +66,7 @@ class Server:
 
         print("Ganadores enviados al cliente. Fin.")
 
-
-
-
-
+    
     def run(self):
         action = "accept-connection"
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:

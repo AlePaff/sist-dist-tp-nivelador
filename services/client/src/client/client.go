@@ -75,6 +75,23 @@ func (client *Client) Run() error {
 
 	defer client.conn.Close() // ejecuta este comando al final de la función, sin importar si hubo error o no (similar a un 'finally' en otros lenguajes)
 
+	if err := enviarApuestas(client); err != nil {
+		logger.Error(mainAction, logger.Fail)
+		return err
+	}
+
+	// recibir mensaje de ganadores
+	if err := recibirGanadores(client); err != nil {
+		logger.Error(mainAction, logger.Fail)
+		return err
+	}
+
+	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
+
+	return nil
+}
+
+func enviarApuestas(client *Client) error {
 	// abre el archivo de entrada para leerlo
 	inputFile, err := os.Open(client.config.InputFile)
 	if err != nil {
@@ -98,7 +115,7 @@ func (client *Client) Run() error {
 	for scanner.Scan() {
 		fields := strings.Split(scanner.Text(), ",")
 
-		logger.Info(mainAction, logger.InProgress, "agency-id", client.config.AgencyId, "fields", fields)
+		logger.Info("send-bets", logger.InProgress, "agency-id", client.config.AgencyId, "fields", fields)
 
 		bet := protocol.Bet{
 			AgencyID:  client.config.AgencyId,
@@ -126,18 +143,12 @@ func (client *Client) Run() error {
 		return err
 	}
 
-	logger.Info(mainAction, logger.InProgress, "mensajito", "cliente termina de enviar apuestas -------")
+	logger.Info("send-bets", logger.InProgress, "mensajito", "cliente termina de enviar apuestas -------")
 	// enviar mensaje para finalizar (end)
 	err = protocol.SendMessage(client.conn, protocol.MessageTypeEnd, []byte{})
 	if err != nil {
 		return err
 	}
-
-	// recibir mensaje de ganadores
-	err = recibirGanadores(client)
-
-	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
-
 	return nil
 }
 
