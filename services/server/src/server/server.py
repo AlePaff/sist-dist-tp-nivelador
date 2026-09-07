@@ -1,3 +1,4 @@
+import os
 import socket
 import logger
 from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, MESSAGE_TYPE_ACK, deserialize_bets_batch, receive_message, send_message, serialize_winners
@@ -37,6 +38,9 @@ class Server:
                 print("Batch recibido:", betsBatch)
 
                 self.lottery.store_bets(betsBatch)
+
+                # enviar mensaje ack de que se recibio el lote correctamente
+                send_message(client_socket, MESSAGE_TYPE_ACK, b"")
 
             elif message_type == MESSAGE_TYPE_END:
                 print(f"El cliente terminó de enviar apuestas. Se guardan las apuestas")

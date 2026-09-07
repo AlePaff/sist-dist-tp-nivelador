@@ -169,6 +169,19 @@ func enviarBatch(client_conn net.Conn, batch []protocol.Bet) error {
 	}
 	logger.Info("send-bets", logger.InProgress, "mensajito", "cliente manda batch -------")
 
+	// espera recibir el mensaje ack
+	logger.Info("receive-ack", logger.InProgress, "ack", "espera recibir ack del servidor")
+	message, err := protocol.ReceiveMessage(client_conn)
+	if err != nil {
+		return err
+	}
+
+	if message.Type != protocol.MessageTypeAck {
+		logger.Error("receive-ack-error", logger.Fail, "unexpected-message-type", message.Type)
+		return err
+	}
+	logger.Info("receive-ack", logger.Success, "ack recibido del servidor")
+
 	return nil
 }
 

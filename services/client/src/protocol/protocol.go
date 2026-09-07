@@ -17,6 +17,7 @@ const (
 	MessageTypeBet     byte = 1
 	MessageTypeEnd     byte = 2
 	MessageTypeWinners byte = 3
+	MessageTypeAck     byte = 4
 	BetsSeparator           = "\n"
 )
 
@@ -33,7 +34,13 @@ func SendMessage(socket io.Writer, messageType byte, payload []byte) error {
 	packet[0] = messageType
 	binary.BigEndian.PutUint32(packet[1:5], uint32(payloadLength))
 	copy(packet[5:], payload) // se copia el payload en el paquete a partir del byte 5
-
+	logger.Info(
+		"send-message",
+		logger.InProgress,
+		"message-type", messageType,
+		"payload-size", payloadLength,
+		"packet-size", len(packet),
+	)
 	if err := safe_socket.SendAll(socket, packet); err != nil {
 		return err
 	}

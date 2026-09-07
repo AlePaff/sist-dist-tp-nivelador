@@ -5,6 +5,7 @@ from lottery.bet import Bet
 MESSAGE_TYPE_BET = 1
 MESSAGE_TYPE_END = 2
 MESSAGE_TYPE_WINNERS = 3
+MESSAGE_TYPE_ACK = 4
 BETS_SEPARATOR = "\n"
 
 def send_message(socket, message_type, payload):

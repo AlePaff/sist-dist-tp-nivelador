@@ -91,4 +91,7 @@ el servidor procesa el batch pero nunca le informa al cliente que terminó corre
 
 Ejemplo: un posible error es que el cliente envíe una apuesta como string, entonces el servidor lo procesa mal y tira error pero el cliente no tiene manera de saber que ocurrió y sigue mandando paquetes. Esto se soluciona gracias al ack
 
+me estaba fallando el test porque no habia bajado al servicio. Asegurarse con "make down" y luego "make test"
+
+
 
