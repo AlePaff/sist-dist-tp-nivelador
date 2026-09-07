@@ -19,6 +19,7 @@ class Server:
             logger.info("handle-client", logger.LogResult.in_progress)
 
             self._receive_bets(client_socket)
+            print("debug: termino recibir apuestas, calculando ganadores...")
             winners = self._calculate_winners()
             self._send_winners(winners, client_socket)
     
@@ -34,10 +35,10 @@ class Server:
 
                 print("Batch recibido:", betsBatch)
 
-                self.lottery.store_bets([betsBatch])
+                self.lottery.store_bets(betsBatch)
 
             elif message_type == MESSAGE_TYPE_END:
-                print(f"El cliente {betsBatch.agency_id} terminó de enviar apuestas")
+                print(f"El cliente terminó de enviar apuestas. Se guardan las apuestas")
                 break
 
     def _calculate_winners(self):

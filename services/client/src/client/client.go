@@ -134,6 +134,12 @@ func enviarApuestas(client *Client) error {
 			batch = batch[:0] // vaciar el batch para la siguiente iteración
 		}
 	}
+	// si hubo un error al leer el archivo scanner.Scan() devuelve false y el error se guarda en scanner.Err()
+	if err := scanner.Err(); err != nil {
+		logger.Error("read-input-file", logger.Fail)
+		return err
+	}
+
 	// si no se llenó el batch, enviar lo que quedó
 	if len(batch) > 0 {
 		if err := enviarBatch(client.conn, batch); err != nil {
@@ -142,13 +148,8 @@ func enviarApuestas(client *Client) error {
 	}
 
 	// enviar mensaje de que termino de enviar batch
+	logger.Info("send-end", logger.InProgress, "envia mensaje end al servidor", client.config.AgencyId)
 	if err := protocol.SendMessage(client.conn, protocol.MessageTypeEnd, []byte{}); err != nil {
-		return err
-	}
-
-	// si hubo un error al leer el archivo scanner.Scan() devuelve false y el error se guarda en scanner.Err()
-	if err := scanner.Err(); err != nil {
-		logger.Error("read-input-file", logger.Fail)
 		return err
 	}
 
