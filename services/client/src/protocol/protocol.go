@@ -109,7 +109,8 @@ func DeserializeBet(data []byte) (Bet, error) {
 }
 
 func DeserializeWinners(data []byte) ([]Bet, error) {
-	fields := strings.Split(string(data), "\n")
+	BETS_SEPARATOR := "\n"
+	fields := strings.Split(string(data), BETS_SEPARATOR)
 
 	winners := make([]Bet, 0, len(fields))
 

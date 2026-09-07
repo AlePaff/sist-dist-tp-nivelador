@@ -9,12 +9,12 @@ import (
 func TestBetSerialization(t *testing.T) {
 	// Bet que simula la que leería el cliente del CSV
 	originalBet := Bet{
-		AgencyID:  0,
+		AgencyID:  "0",
 		FirstName: "Santiago Lionel",
 		LastName:  "Lorca",
-		Document:  30904465,
+		Document:  "30904465",
 		Birthdate: "1999-03-17",
-		Number:    7574,
+		Number:    "7574",
 	}
 
 	// Simulamos la conexión entre cliente y servidor

@@ -5,6 +5,7 @@ from lottery.bet import Bet
 MESSAGE_TYPE_BET = 1
 MESSAGE_TYPE_END = 2
 MESSAGE_TYPE_WINNERS = 3
+BETS_SEPARATOR = "\n"
 
 def send_message(socket, message_type, payload):
     packet = struct.pack("!BI", message_type, len(payload)) + payload     # !BI significa: ! = big-endian, B = unsigned char (1 byte), I = unsigned int (4 bytes)
@@ -70,4 +71,4 @@ def serialize_winners(winners):
         lines.append(line)
 
     print("ganadores serializados: ", lines)
-    return "\n".join(lines).encode()
+    return BETS_SEPARATOR.join(lines).encode()

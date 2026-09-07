@@ -70,7 +70,12 @@ y recibe tambien un bet pero de los ganadores??
 
 El servidor recibe estas apuestas, procesa todas y luego le envia a cada cliente los ganadores
 
+Se envian los ganadores separados por \n
 
+
+
+### Ejercicio 6
+Antes se enviaba 1 apuesta por 1 mensaje, ahora se intenta N=BATCH_SIZE apuestas por 1 mensaje
 
 
 

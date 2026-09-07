@@ -16,16 +16,13 @@ import (
 const CONNECTION_ATTEMPTS_MAX = 3
 const CONNECTION_ATTEMPS_DELAY_MS = 200
 
-const ECHO_CLIENT_BUFFER_SIZE = 512
-const ECHO_CLIENT_MESSAGE_AMOUNT = 3
-const ECHO_CLIENT_MESSAGE_DELAY_MS = 1000
-
 type ClientConfig struct {
 	ServerHost string
 	ServerPort string
 	AgencyId   string
 	InputFile  string
 	OutputFile string
+	BatchSize  int
 }
 
 type Client struct {
@@ -153,6 +150,7 @@ func enviarApuestas(client *Client) error {
 }
 
 func recibirGanadores(client *Client) error {
+	BETS_SEPARATOR := "\n"
 	// recibe mensaje ganadores
 	message, err := protocol.ReceiveMessage(client.conn)
 	if err != nil {
@@ -183,7 +181,7 @@ func recibirGanadores(client *Client) error {
 				winner.LastName + "," +
 				winner.Document + "," +
 				winner.Birthdate + "," +
-				winner.Number + "\n",
+				winner.Number + BETS_SEPARATOR,
 		)
 
 		if err != nil {

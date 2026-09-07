@@ -27,6 +27,7 @@ services:
       - SERVER_PORT=5678      # pueden usar el mismo puerto los distintos clientes, ya que cada uno actua como una "computadora" independiente (no hay conflicto de puertos entre ellos)
       - INPUT_FILE=/input/input-0.csv
       - OUTPUT_FILE=/output/output-0.csv
+      - BATCH_SIZE=2
     volumes:
       - ./input:/input      # mapea la carpeta ./input del host a la carpeta /input del contenedor (sintaxis: RUTA_HOST:RUTA_CONTENEDOR)
       - ./output:/output
