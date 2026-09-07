@@ -1,6 +1,6 @@
 import socket
 import logger
-from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, deserialize_bets_batch, receive_message, send_message, serialize_winners
+from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_WINNERS, MESSAGE_TYPE_ACK, deserialize_bets_batch, receive_message, send_message, serialize_winners
 from lottery.lottery import Lottery
 
 
@@ -9,6 +9,7 @@ class Server:
         self.server_host = server_host
         self.server_port = server_port
         # vaciar archivo bets.csv al iniciar el servidor. Si no existe crearlo
+        os.makedirs("/data", exist_ok=True)
         with open("/data/bets.csv", "w") as f:
             f.write("")
         self.lottery = Lottery("/data/bets.csv")

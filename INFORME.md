@@ -71,12 +71,24 @@ y recibe tambien un bet pero de los ganadores??
 El servidor recibe estas apuestas, procesa todas y luego le envia a cada cliente los ganadores
 
 Se envian los ganadores separados por \n
+Ejemplo
+fields="[0,Santiago Lionel,Lorca,30904465,1999-03-17,7574\n0,Camila Rocio,Varela,37130775,1995-05-09,7574]"
+
+bet="{AgencyID:0 FirstName:Santiago Lionel LastName:Lorca Document:30904465 Birthdate:1999-03-17 Number:7574}" err=<nil>
+bet="{AgencyID:0 FirstName:Camila Rocio LastName:Varela Document:37130775 Birthdate:1995-05-09 Number:7574}" err=<nil>
 
 
+el formato es
+tipo mensaje = apuesta
+apuesta_1_en_binario \n apuesta_2_en_binario \n apuesta_3_en_binario
 
 ### Ejercicio 6
 Antes se enviaba 1 apuesta por 1 mensaje, ahora se intenta N=BATCH_SIZE apuestas por 1 mensaje
 
+Tras cada batch el server envia un ACK al cliente, indicando que salió todo bien. 
+Por ser una implementación simple el cliente espera un ack, si no lo recibe no sigue enviando y se queda tildado o quieto ahí
+el servidor procesa el batch pero nunca le informa al cliente que terminó correctamente.
 
+Ejemplo: un posible error es que el cliente envíe una apuesta como string, entonces el servidor lo procesa mal y tira error pero el cliente no tiene manera de saber que ocurrió y sigue mandando paquetes. Esto se soluciona gracias al ack
 
 

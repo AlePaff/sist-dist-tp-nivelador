@@ -11,7 +11,7 @@ services:
     ports: 
       - "5678:5678"     # expone un puerto del contenedor al host (sintaxis: PUERTO_HOST:PUERTO_CONTENEDOR)
     volumes:
-      - ./server-data:/data     # NOTE: temporal, luego se puede eliminar. Por ahora para debuggear en server.py a         self.lottery = Lottery("/data/bets.csv")
+      - ./data:/data     # NOTE: temporal, luego se puede eliminar. Por ahora para debuggear en server.py a         self.lottery = Lottery("/data/bets.csv")
       
 
   client_0:
