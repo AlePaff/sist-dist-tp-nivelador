@@ -115,5 +115,8 @@ El quorum sigue siendo global; el almacenamiento y el cálculo pueden ser locale
 no necesitás filtrar los ganadores, porque cada Lottery contiene exclusivamente las apuestas de esa agencia
 
 
+faltaría un mecanismo de protección para acceder a server->lotteries_dictionary
+
+
 
 

@@ -11,10 +11,8 @@ class Server:
         self.server_host = server_host
         self.server_port = server_port
         self.agency_quorum_min = agency_quorum_min
-        # vaciar archivo bets.csv al iniciar el servidor. Si no existe crearlo
+        # crea el directorio donde se guardaran los archivos de apuestas de cada cliente
         os.makedirs("/data", exist_ok=True)
-        with open("/data/bets.csv", "w") as f:
-            f.write("")
         self.lotteries = {}
         self.finished_agencies = set()          # set para evitar contar dos veces a una agencia
         self.quorum_condition = threading.Condition()
@@ -25,7 +23,7 @@ class Server:
             logger.info("handle-client", logger.LogResult.in_progress)
 
             agency_id = self._receive_bets(client_socket)
-            print("debug: termino recibir apuestas, calculando ganadores...")
+            print(f"debug: termino recibir apuestas de {agency_id}, calculando ganadores...")
             winners = self._calculate_winners(agency_id)
             self._send_winners(winners, client_socket)
     
@@ -52,6 +50,9 @@ class Server:
                     agency_id = betsBatch[0].agency_id
 
                 if agency_id not in self.lotteries:
+                    # durante la inicialización deja el archivo vacio
+                    with open(f"/data/bets_{agency_id}.csv", "w") as f:
+                        f.write("")
                     self.lotteries[agency_id] = Lottery(f"/data/bets_{agency_id}.csv")
 
                 self.lotteries[agency_id].store_bets(betsBatch)
@@ -73,7 +74,6 @@ class Server:
         return agency_id
 
     def _calculate_winners(self, agency_id):
-        # NOTE: por ahora solo un cliente, luego se hace un quorum para saber a cuantos clientes esperar
         bets = list(self.lotteries[agency_id].load_bets())       # aca se consume el iterador
         print("Cant apuestas recibidas:", len(bets))
         winners = []
