@@ -115,7 +115,16 @@ El quorum sigue siendo global; el almacenamiento y el cálculo pueden ser locale
 no necesitás filtrar los ganadores, porque cada Lottery contiene exclusivamente las apuestas de esa agencia
 
 
-faltaría un mecanismo de protección para acceder a server->lotteries_dictionary
+faltaría un mecanismo de protección para acceder a server->lotteries_dictionary. Aunque ahora mismo cada agencia tiene su propio hilo y por lo tanto su propio agency_id. la unica forma en la que puede ocurrir un problema es que dos agencias distintas con el mismo id intenten acceder al diccionario al mismo tiempo. Pero para este caso sencillo se asume que no ocurrirá esto
+
+Otra forma era guardar todas las apuestas en un mismo archivo y luego leerlo e ir filtrando por agencia
+
+
+### Ejercicio 8
+
+
+
+
 
 
 
