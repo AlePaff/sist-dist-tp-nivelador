@@ -3,6 +3,7 @@ package client
 import (
 	// imports de la libreria estandar
 	"bufio" // para leer y escribir en archivos linea por linea
+	"context"
 	"net"
 	"os" // acceder a variables de entorno, crear y leer archivo, etc.
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 const CONNECTION_ATTEMPTS_MAX = 3
 const CONNECTION_ATTEMPS_DELAY_MS = 200
+const GRACEFUL_SHUTDOWN_TIMEOUT = 4 * time.Second
 
 type ClientConfig struct {
 	ServerHost string
@@ -28,9 +30,10 @@ type ClientConfig struct {
 type Client struct {
 	conn   net.Conn
 	config ClientConfig
+	ctx    context.Context
 }
 
-func NewClient(config ClientConfig) (*Client, error) {
+func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 	conn, err := connectToServer(config.ServerHost, config.ServerPort)
 	// si la conexión falló devuelve un puntero nulo y el error
 	if err != nil {
@@ -38,7 +41,18 @@ func NewClient(config ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
-	client := &Client{conn: conn, config: config}
+	client := &Client{conn: conn, config: config, ctx: ctx}
+
+	// goroutine (corre en paralelo) que fuerza el cierre de la conexión si el contexto se cancela
+	// mientras hay una operación de red bloqueada, para acotar el tiempo de cierre
+	go func() {
+		<-ctx.Done() // con <- se congela la funcion y espera a recibir un dato del channel
+		logger.Info("sigterm-received", logger.InProgress)
+		time.AfterFunc(GRACEFUL_SHUTDOWN_TIMEOUT, func() { // espera 4 segundos antes de ejecutar la funcion anonima "func"
+			client.conn.Close()
+		})
+	}()
+
 	return client, nil
 	// devuelve un puntero a cliente y nil si no hay error
 }
@@ -73,12 +87,25 @@ func (client *Client) Run() error {
 	defer client.conn.Close() // ejecuta este comando al final de la función, sin importar si hubo error o no (similar a un 'finally' en otros lenguajes)
 
 	if err := enviarApuestas(client); err != nil {
+		if client.ctx.Err() != nil { // pregunta si la funcion falló por ser cancelada. Si no es asi entonces es un error inesperado
+			logger.Info(mainAction, logger.Success, "info", "cierre graceful por SIGTERM")
+			return nil
+		}
 		logger.Error(mainAction, logger.Fail)
 		return err
 	}
 
+	if client.ctx.Err() != nil {
+		logger.Info(mainAction, logger.Success, "info", "cierre graceful por SIGTERM")
+		return nil
+	}
+
 	// recibir mensaje de ganadores
 	if err := recibirGanadores(client); err != nil {
+		if client.ctx.Err() != nil {
+			logger.Info(mainAction, logger.Success, "info", "cierre graceful por SIGTERM")
+			return nil
+		}
 		logger.Error(mainAction, logger.Fail)
 		return err
 	}
@@ -110,6 +137,14 @@ func enviarApuestas(client *Client) error {
 	batch := make([]protocol.Bet, 0, client.config.BatchSize)
 	// lee cada linea del archivo de entrada, la manda al servidor y escribe la respuesta en el archivo de salida
 	for scanner.Scan() {
+		// chequeo de cancelación entre lectura de linea, si llegó SIGTERM, termina aca
+		select {
+		case <-client.ctx.Done():
+			logger.Info("send-bets", logger.InProgress, "info", "shutdown solicitado, se corta el envío")
+			return nil
+		default:
+		}
+
 		fields := strings.Split(scanner.Text(), ",")
 
 		logger.Info("send-bets", logger.InProgress, "agency-id", client.config.AgencyId, "fields", fields)
@@ -138,6 +173,14 @@ func enviarApuestas(client *Client) error {
 	if err := scanner.Err(); err != nil {
 		logger.Error("read-input-file", logger.Fail)
 		return err
+	}
+
+	// por si llego un SEGTERM justo cuando termino de procesar el batch
+	select {
+	case <-client.ctx.Done():
+		logger.Info("send-bets", logger.InProgress, "info", "shutdown solicitado fuera del batch size, se corta el envío")
+		return nil
+	default:
 	}
 
 	// si no se llenó el batch, enviar lo que quedó
@@ -210,6 +253,10 @@ func recibirGanadores(client *Client) error {
 
 	// guardar en archivo de salida
 	outputFile, err := os.Create(client.config.OutputFile)
+	if err != nil {
+		return err
+	}
+	defer outputFile.Close()
 
 	for _, winner := range winners {
 		_, err := outputFile.WriteString(

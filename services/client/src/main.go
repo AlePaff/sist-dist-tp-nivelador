@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	client "github.com/7574-sistemas-distribuidos/tp-nivelador/src/client"
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/logger"
@@ -60,7 +63,11 @@ func run() int {
 		return 1
 	}
 
-	client, err := client.NewClient(config)
+	// crea un contexto que se cancelara si la aplicacion recibe un SIGTERM
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+	defer cancel()
+
+	client, err := client.NewClient(ctx, config)
 	if err != nil {
 		logger.Error("client-new", logger.Fail, "err", err)
 		return 1
