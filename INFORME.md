@@ -94,4 +94,26 @@ Ejemplo: un posible error es que el cliente envíe una apuesta como string, ento
 me estaba fallando el test porque no habia bajado al servicio. Asegurarse con "make down" y luego "make test"
 
 
+### Ejercicio 7
+Hasta ahora
+client_socket, _ = server_socket.accept()
+acepta una conexión y queda bloqueado, por lo tanto no permite con multiples clientes realmente. solo atiende uno a la vez
+en los logs se ve que dice primero client_0 hace todo el procesamiento, luego hace client_1 (aunque es mas dificil de rastrear porque los logs pueden imprimirse en otro orden)
+
+segun entiendo el threading no escala bien en CPython (interprete de python) debido al GIL. CPython si tiene multi threading, es GIL quien lo frena
+pero sirve mucho para operaciones I/O-bound (como esperar red, archivos, sockets, etc). Ahí si es util, pero de lo contrario para cosas pesadas es lo mismo que tener un hilo
+
+
+El servidor tiene que esperar a que hayan terminado como mínimo AGENCY_QUORUM_MIN agencias.
+
+hay un thread por cliente, en miles o millones de clientes esto no escala bien, pero para este tp sirve esta simplificación
+
+
+
+El quorum sigue siendo global; el almacenamiento y el cálculo pueden ser locales al hilo. Eso evita el problema actual de que todos carguen bets.csv y puedan recibir ganadores de otras agencias.
+
+no necesitás filtrar los ganadores, porque cada Lottery contiene exclusivamente las apuestas de esa agencia
+
+
+
 

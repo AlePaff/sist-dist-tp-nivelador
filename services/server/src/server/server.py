@@ -15,7 +15,7 @@ class Server:
         os.makedirs("/data", exist_ok=True)
         with open("/data/bets.csv", "w") as f:
             f.write("")
-        self.lottery = Lottery("/data/bets.csv")
+        self.lotteries = {}
         self.finished_agencies = set()          # set para evitar contar dos veces a una agencia
         self.quorum_condition = threading.Condition()
         
@@ -24,9 +24,9 @@ class Server:
         try:
             logger.info("handle-client", logger.LogResult.in_progress)
 
-            self._receive_bets(client_socket)
+            agency_id = self._receive_bets(client_socket)
             print("debug: termino recibir apuestas, calculando ganadores...")
-            winners = self._calculate_winners()
+            winners = self._calculate_winners(agency_id)
             self._send_winners(winners, client_socket)
     
         except Exception as e:
@@ -51,7 +51,10 @@ class Server:
                 if agency_id is None:
                     agency_id = betsBatch[0].agency_id
 
-                self.lottery.store_bets(betsBatch)
+                if agency_id not in self.lotteries:
+                    self.lotteries[agency_id] = Lottery(f"/data/bets_{agency_id}.csv")
+
+                self.lotteries[agency_id].store_bets(betsBatch)
 
                 # enviar mensaje ack de que se recibio el lote correctamente
                 send_message(client_socket, MESSAGE_TYPE_ACK, b"")
@@ -67,19 +70,20 @@ class Server:
                     while len(self.finished_agencies) < self.agency_quorum_min:         # solo saldra del ciclo dormir->ser despertado->comprobar condicion->dormir, cuando se cumpla la condición
                         self.quorum_condition.wait()        #aqui tambien se libera el lock del "with"
                 break
+        return agency_id
 
-    def _calculate_winners(self):
+    def _calculate_winners(self, agency_id):
         # NOTE: por ahora solo un cliente, luego se hace un quorum para saber a cuantos clientes esperar
-        bets = list(self.lottery.load_bets())       # aca se consume el iterador
+        bets = list(self.lotteries[agency_id].load_bets())       # aca se consume el iterador
         print("Cant apuestas recibidas:", len(bets))
         winners = []
 
         for bet in bets:
             print(f"Evaluando apuesta: {bet}")
-            if self.lottery.has_won(bet):
+            if self.lotteries[agency_id].has_won(bet):
                 winners.append(bet)
 
-        print(f"Ganadores: {winners}")
+        print(f"Ganadores: {winners} de la agencia {agency_id}")
         return winners
 
     def _send_winners(self, winners, client_socket):
