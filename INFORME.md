@@ -121,6 +121,51 @@ Otra forma era guardar todas las apuestas en un mismo archivo y luego leerlo e i
 
 
 ### Ejercicio 8
+-t indica el tiempo de espera (timeout) antes de forzar la eliminación de los contenedores.
+
+SIGTERM primero le avisa que va a cerrarlo y luego SIGKILL lo mata a la fuerza si es que sigue abierto
+
+Se puede usar mutex para diseñar un estado compartido y preguntar si el programa sigue abierto o no, o bien usar la funcionalidad de context que es una especie de propagación entre todo esto
+
+
+Se puede simular pasandole un archivo muy grande al cliente (por ejemplo input-1.csv) y luego hace "make up" y en otra consola muentras se muestra el envio de apuestas hace "make down". Se podrá ver una salida similar a la siguiente, registrandose correctamente que se hizo una salida _grateful_
+
+
+```
+client_0  | 2026/09/08 21:14:45 INFO action=sigterm-received result=in-progress
+client_1  | 2026/09/08 21:14:45 INFO action=sigterm-received result=in-progress
+client_1  | 2026/09/08 21:14:45 INFO action=receive-message result=in-progress AAAAAAAAAAAAAAAA=4 payload-size=0
+client_1  | 2026/09/08 21:14:45 INFO action=receive-ack result=success !BADKEY="ack recibido del servidor"
+client_1  | 2026/09/08 21:14:45 INFO action=send-bets result=in-progress info="shutdown solicitado, se corta el envío"
+server    | Exception in thread Thread-2 (_handle_client):
+client_1  | 2026/09/08 21:14:45 INFO action=process-input-file-from-server result=success info="cierre graceful por SIGTERM"
+server    | Traceback (most recent call last):
+server    |   File "/usr/local/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+server    |     self._context.run(self.run)
+server    |     ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+server    |   File "/usr/local/lib/python3.14/threading.py", line 1024, in run
+server    |     self._target(*self._args, **self._kwargs)
+server    |     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+server    |   File "/src/server/server.py", line 68, in _handle_client
+server    |     raise e
+server    |   File "/src/server/server.py", line 59, in _handle_client
+server    |     agency_id = self._receive_bets(client_socket)
+server    |   File "/src/server/server.py", line 77, in _receive_bets
+server    |     message_type, payload = receive_message(client_socket)
+server    |                             ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+server    |   File "/src/protocol/protocol.py", line 18, in receive_message
+server    |     header = safe_socket.recv_all(socket, 5)
+server    |   File "/src/safe_socket/safe_socket.py", line 12, in recv_all
+server    |     raise RuntimeError("socket connection broken")
+server    | RuntimeError: socket connection broken
+client_1 exited with code 0
+client_0  | 2026/09/08 21:14:49 INFO action=process-input-file-from-server result=success info="cierre graceful por SIGTERM"
+client_0 exited with code 0
+server    | 2026/09/08 21:14:49 INFO action=sigterm-received result=in-progress 
+server    | 2026/09/08 21:14:49 INFO action=sigterm-received result=in-progress 
+server exited with code 0
+```
+
 
 
 

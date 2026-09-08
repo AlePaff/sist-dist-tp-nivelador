@@ -1,4 +1,5 @@
 import os
+import signal
 import socket
 import threading
 import logger
@@ -16,19 +17,58 @@ class Server:
         self.lotteries = {}
         self.finished_agencies = set()          # set para evitar contar dos veces a una agencia
         self.quorum_condition = threading.Condition()
+
+        # manejo de SIGTERM
+        self._shutdown_event = threading.Event()        # "evento" Shutdown
+        self._server_socket = None
+        self._client_sockets = []
+        self._client_threads = []
+        signal.signal(signal.SIGTERM, self._handle_sigterm)     # cuando se detecta SIGTERM ejecutar la funcion _handle_sigterm
         
+    def _handle_sigterm(self, signum, frame):
+        logger.info("sigterm-received", logger.LogResult.in_progress)
+        self._shutdown_event.set()      # se setea a True el evento "shutdown solicitado"
+
+        # despierta threads que puedan estar esperando el quorum para que hagan shutdown
+        with self.quorum_condition:
+            self.quorum_condition.notify_all()
+
+        # cierra el socket de escucha para desbloquear accept()
+        if self._server_socket is not None:
+            try:
+                self._server_socket.close()
+            except OSError:
+                pass
+
+        # cierra los sockets de clientes activos para desbloquear recv()
+        for s in self._client_sockets:
+            try:
+                s.close()
+            except OSError:
+                pass
 
     def _handle_client(self, client_socket):
+        self._client_sockets.append(client_socket)
+
         try:
             logger.info("handle-client", logger.LogResult.in_progress)
 
+            if self._shutdown_event.is_set():
+                return
+
             agency_id = self._receive_bets(client_socket)
+            if self._shutdown_event.is_set() or agency_id is None:
+                return
             print(f"debug: termino recibir apuestas de {agency_id}, calculando ganadores...")
             winners = self._calculate_winners(agency_id)
             self._send_winners(winners, client_socket)
     
         except Exception as e:
-            raise e
+            if not self._shutdown_event.is_set():
+                raise e
+
+        finally:
+            client_socket.close()
 
     def _receive_bets(self, client_socket):
         agency_id = None
@@ -67,9 +107,11 @@ class Server:
 
                     self.quorum_condition.notify_all()      # despierta a los threads que estan esperando el quorum
 
-                    # si aún no se llegó al quorum, pone a dormir al hilo actual
-                    while len(self.finished_agencies) < self.agency_quorum_min:         # solo saldra del ciclo dormir->ser despertado->comprobar condicion->dormir, cuando se cumpla la condición
+                    # si aún no se llegó al quorum, pone a dormir al hilo actual. se asegura tambien de que no este el evento de shutdown activado
+                    while len(self.finished_agencies) < self.agency_quorum_min and not self._shutdown_event.is_set():         # solo saldra del ciclo dormir->ser despertado->comprobar condicion->dormir, cuando se cumpla la condición
                         self.quorum_condition.wait()        #aqui tambien se libera el lock del "with"
+                if self._shutdown_event.is_set():
+                    return None
                 break
         return agency_id
 
@@ -102,10 +144,11 @@ class Server:
     def run(self):
         action = "accept-connection"
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+            self._server_socket = server_socket
             # escucha conexiones entrantes en la dirección y puerto especificados
             server_socket.bind((self.server_host, self.server_port))
             server_socket.listen()
-            while True:
+            while not self._shutdown_event.is_set():
                 # acepta una conexión entrante y obtiene el socket del cliente
                 try:
                     logger.info(action, logger.LogResult.in_progress)
@@ -115,10 +158,18 @@ class Server:
                         target=self._handle_client,
                         args=(client_socket,)
                     )
+                    # los va guardando para que en caso que llegue el evento SIGTERM entonces itere a cada uno y los vaya cerrando
+                    self._client_threads.append(thread)
                     thread.start()
                     
                 except Exception as e:
+                    if self._shutdown_event.is_set():
+                        break
                     logger.error(action, logger.LogResult.fail)
                     raise e
                 logger.info(action, logger.LogResult.success)
+
+        self._handle_sigterm(None, None)
+        for thread in self._client_threads:
+            thread.join()
 
