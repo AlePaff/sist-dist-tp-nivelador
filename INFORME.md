@@ -1,14 +1,12 @@
-Redactar un breve informe en donde se detallen los aspectos más importantes de la solución provista, como ser el protocolo de comunicación implementado y los mecanismos para sincronizar la ejecución concurrente.
+## TP Nivelador: Docker, Comunicaciones y Concurrencia
+### Consideraciones generales
+Para ejecutar `make up`, `make down` y demás comandos desde Windows, se debe utilizar una consola compatible con Bash, como Git Bash.
 
-
-
-
-make up funciona solo en la consola de linux, si estas en windows poner la consola de "bash" o "git bash"
-
-se cambió el makefile y dockercompose de python3 a python. En todo caso cuando se suba al campus va a andar bien, es solo mi entorno que no encuentra python3 pero si python
+Se modificaron el Makefile y docker-compose.yaml para utilizar python en lugar de python3. Esto se debe únicamente a la configuración del entorno local de Windows, donde python está disponible pero python3 no. En el entorno de entrega esto no debería representar un inconveniente.
 
 ### Ejercicio 1
-Se creó el script scripts/1_generar_compose_clientes.py para generar la cantidad de clientes según indique el enunciado. De acuerdo al punto 1 opcional
+Se creó el script `scripts/1_generar_compose_clientes.py` para generar automáticamente la cantidad de clientes indicada por parámetro, de acuerdo con el punto opcional del ejercicio
+
 Ejemplo de ejecución
 
 ```bash
@@ -17,8 +15,9 @@ $ python 1_generar_compose_clientes.py 2
 ```
 
 
-
 ### Ejercicio 2
+Se expusieron los puertos del servidor para poder conectarse desde el equipo anfitrión mediante netcat. El script creado se encuentra en `scripts/2_verificar_servidor.sh`
+
 Ejemplo de ejecución
 
 ```bash
@@ -27,31 +26,29 @@ Hello World
 ```
 
 ### Ejercicio 3
-Ejemplo de ejecución. luego de "make up"
+Se modificó el cliente para leer `INPUT_FILE` línea por línea y enviar cada apuesta al servidor. Las respuestas se persisten en `OUTPUT_FILE` (ver docker-compose.yaml), utilizando un volumen de Docker para que el archivo sea accesible desde el equipo anfitrión y no quede unicamente en el contenedor
 
-Configurar INPUTFILE y OUTPUTFILE en docker-compose.yaml
+Ejemplo de ejecución. luego de `make up`
 
 ```bash
-client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress config.input-file=/input/input-0.csv config.output-file=/output/output-0.csv
-client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
-client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
-client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
-client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
-client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=in-progress agency-id=0
-client_0  | 2026/08/28 06:55:34 INFO action=process-input-file-from-server result=success agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO result=in-progress config.input-file=/input/input-0.csv config.output-file=/output/output-0.csv
+client_0  | 2026/08/28 06:55:34 INFO result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO result=in-progress agency-id=0
+client_0  | 2026/08/28 06:55:34 INFO result=success agency-id=0
 ```
 
 
-
 ### Ejercicio 4
-el problema es que por TCP se puede enviar 50 bytes y recibir solo 25, o primero 25 y luego los otros 25 (short write). Entonces para solucionarlo se deberia enviar todo, mediante un loop por ejemplo 
+El problema es que TCP no garantiza que una operación de lectura o escritura procese todos los bytes solicitados. Por ejemplo, se pueden enviar 50 bytes y recibirlos en dos lecturas de 25 bytes cada una (short read), o escribir solamente una parte de los datos (short write)
 
+Para solucionarlo, send_all y recv_all realizan operaciones repetidas hasta completar la cantidad de bytes esperada o detectar un error de comunicación.
 
 
 ### Ejercicio 5
-Una apuesta tiene 6 campos, el agency_id se obtiene del docker compose, mientras que los otros 5 datos de un .csv por ejemplo
-Ver bet.py
-
+Se implementó un protocolo de comunicación entre cliente y servidor que permite enviar las apuestas y los resultados del sorteo
 
 El protocolo es muy sencillo, cada paquete tiene
 ┌────────┬──────────┬─────────────────┐
@@ -63,99 +60,88 @@ con
 1 = BET
 2 = END
 3 = WINNERS
+4 = ACK
 
+Una apuesta contiene seis campos: agency_id, first_name, last_name, document, birthdate y number. El agency_id se obtiene de la configuración del cliente, mientras que los demás datos se obtienen del archivo .csv
 
-El cliente envia el archivo de apuestas dividiendo cada linea por una apuesta enviando un paquete diferente de acuerdo al protocolo definido anteriormente
-y recibe tambien un bet pero de los ganadores??
+El cliente serializa las apuestas y las envía al servidor. Cuando termina de enviar todas las apuestas, envía un mensaje END. El servidor almacena las apuestas mediante Lottery.store_bet, calcula los ganadores utilizando load_bets y has_won, y finalmente envía al cliente el listado de ganadores. El cliente persiste estos datos en OUTPUT_FILE.
 
-El servidor recibe estas apuestas, procesa todas y luego le envia a cada cliente los ganadores
+Los ganadores se serializan utilizando \n como separador entre apuestas.
 
-Se envian los ganadores separados por \n
 Ejemplo
+```
 fields="[0,Santiago Lionel,Lorca,30904465,1999-03-17,7574\n0,Camila Rocio,Varela,37130775,1995-05-09,7574]"
 
 bet="{AgencyID:0 FirstName:Santiago Lionel LastName:Lorca Document:30904465 Birthdate:1999-03-17 Number:7574}" err=<nil>
 bet="{AgencyID:0 FirstName:Camila Rocio LastName:Varela Document:37130775 Birthdate:1995-05-09 Number:7574}" err=<nil>
+```
 
-
-el formato es
+El formato es
+```
 tipo mensaje = apuesta
 apuesta_1_en_binario \n apuesta_2_en_binario \n apuesta_3_en_binario
+```
 
 ### Ejercicio 6
-Antes se enviaba 1 apuesta por 1 mensaje, ahora se intenta N=BATCH_SIZE apuestas por 1 mensaje
+Se modificó el protocolo para permitir enviar varias apuestas dentro de un mismo mensaje. 
 
-Tras cada batch el server envia un ACK al cliente, indicando que salió todo bien. 
-Por ser una implementación simple el cliente espera un ack, si no lo recibe no sigue enviando y se queda tildado o quieto ahí
-el servidor procesa el batch pero nunca le informa al cliente que terminó correctamente.
+La cantidad de apuestas por mensaje se configura mediante BATCH_SIZE.
 
-Ejemplo: un posible error es que el cliente envíe una apuesta como string, entonces el servidor lo procesa mal y tira error pero el cliente no tiene manera de saber que ocurrió y sigue mandando paquetes. Esto se soluciona gracias al ack
+Luego de cada batch, el servidor envía un ACK al cliente indicando que todas las apuestas del lote fueron procesadas correctamente. El cliente espera este ACK antes de continuar enviando el siguiente lote. Se hace un manejo simple por tratarse de un protocolo sencillo.
 
-me estaba fallando el test porque no habia bajado al servicio. Asegurarse con "make down" y luego "make test"
+De esta forma, si el servidor detecta un error al procesar un batch, el cliente no continúa enviando nuevos lotes sin conocer el resultado del anterior.
+
+Ejemplo: Un posible error es que el cliente envíe una apuesta como string, entonces el servidor lo procesa mal y arroja un error pero el cliente no tiene manera de saber que ocurrió y continúa mandando paquetes. Esto se soluciona gracias al ACK.
+
+
+##### Observaciones
+Durante el desarrollo me estaba fallando el test porque no se había bajado el servicio. Asegurarse con "make down" y luego "make test"
+
 
 
 ### Ejercicio 7
-Hasta ahora
-client_socket, _ = server_socket.accept()
-acepta una conexión y queda bloqueado, por lo tanto no permite con multiples clientes realmente. solo atiende uno a la vez
-en los logs se ve que dice primero client_0 hace todo el procesamiento, luego hace client_1 (aunque es mas dificil de rastrear porque los logs pueden imprimirse en otro orden)
+Se modificó el servidor para procesar los clientes concurrentemente mediante un thread por conexión. De esta forma, mientras un cliente espera operaciones de red, otros clientes pueden ser atendidos.
 
-segun entiendo el threading no escala bien en CPython (interprete de python) debido al GIL. CPython si tiene multi threading, es GIL quien lo frena
-pero sirve mucho para operaciones I/O-bound (como esperar red, archivos, sockets, etc). Ahí si es util, pero de lo contrario para cosas pesadas es lo mismo que tener un hilo
+El servidor utiliza una Condition para implementar el mecanismo de quorum. Cada cliente notifica cuando terminó de enviar sus apuestas y queda esperando hasta que se haya alcanzado como mínimo la cantidad de agencias indicada por AGENCY_QUORUM_MIN.
 
+La Condition permite que los threads que todavía no alcanzaron el quorum queden bloqueados sin consumir CPU y sean despertados cuando otra agencia finaliza.
 
-El servidor tiene que esperar a que hayan terminado como mínimo AGENCY_QUORUM_MIN agencias.
-
-hay un thread por cliente, en miles o millones de clientes esto no escala bien, pero para este tp sirve esta simplificación
+Además, como todas las agencias utilizan el mismo archivo /data/bets.csv, se utiliza un Lock para sincronizar el acceso al archivo y evitar escrituras o lecturas concurrentes inconsistentes. El lock protege el acceso al archivo, mientras que el cálculo de ganadores se realiza sobre los datos ya cargados en memoria.
 
 
 
-El quorum sigue siendo global; el almacenamiento y el cálculo pueden ser locales al hilo. Eso evita el problema actual de que todos carguen bets.csv y puedan recibir ganadores de otras agencias.
-
-faltaría un mecanismo de protección para acceder a server->lottery
-
-Otra forma era guardar un diccionario de Lottery de forma que cada agencia tengo un archivo de apuestas separado, pero se evita esto ya que el objetivo es intentar sincronizar el acceso y simular concurrencia
+##### Observaciones
+- Hasta ahora se aceptaba una conexión y el server quedaba bloqueado, no permitiendo multiples clientes realmente, solo atendiendo uno por vez. En los logs se podía ver que primero estan los logs de client_0, se hace todo el procesamiento, se envian los ganadores y luego se hacía para client_1. Aunque puede ser dificil de rastrear ya que los logs pueden imprimirse en otro orden
+- El threading no escala bien en CPython (interprete de python) debido al GIL. CPython si tiene multi threading, es GIL quien lo frena. Es muy útil para operaciones I/O-bound (como esperar red, archivos, sockets, etc). De lo contrario para operaciones pesadas es lo mismo que tener un hilo y no existe paralelismo real. 
+- Otra forma de implementar la solución era guardar un diccionario de Lottery de forma que cada agencia tenga un archivo de apuestas separado, pero se evita esto ya que el objetivo es intentar sincronizar el acceso y simular problemas concurrencia, que mediante esta alternativa no ocurrirían o sería mas dificil que ocurran. 
 
 
 
 ### Ejercicio 8
--t indica el tiempo de espera (timeout) antes de forzar la eliminación de los contenedores.
+Se implementó el cierre graceful del cliente y servidor ante la recepción de `SIGTERM`. El objetivo es que los recursos utilizados, como sockets, archivos y threads, sean liberados correctamente antes de finalizar.
 
-SIGTERM primero le avisa que va a cerrarlo y luego SIGKILL lo mata a la fuerza si es que sigue abierto
+En el cliente se utiliza context para propagar la señal de cancelación. Al recibir `SIGTERM`, el contexto queda cancelado y el cliente deja de enviar nuevas apuestas. También se utiliza una goroutine que espera la cancelación del contexto y fuerza el cierre del socket luego de un tiempo máximo de X segundos configurables, evitando que una operación de red bloqueada impida terminar el proceso.
 
-Se puede usar mutex para diseñar un estado compartido y preguntar si el programa sigue abierto o no, o bien usar la funcionalidad de context que es una especie de propagación entre todo esto
+En el servidor se utiliza `threading.Event` para representar el estado de shutdown. Al recibir `SIGTERM`, se activa el evento, se despiertan los threads que estén esperando el quorum y se cierran tanto el socket de escucha como los sockets de los clientes para desbloquear posibles operaciones de accept() y recv().
 
+Finalmente, el servidor espera mediante a que terminen los threads de los clientes antes de finalizar el proceso.
 
-Se puede simular pasandole un archivo muy grande al cliente (por ejemplo input-1.csv) y luego hace "make up" y en otra consola muentras se muestra el envio de apuestas hace "make down". Se podrá ver una salida similar a la siguiente, registrandose correctamente que se hizo una salida _grateful_
+El tiempo -t utilizado por docker compose down establece cuánto tiempo Docker espera a que los procesos terminen correctamente antes de forzar su finalización mediante SIGKILL.
 
+#### Observaciones
+- Se puede usar mutex para diseñar un estado compartido y preguntar si el programa sigue ejecutandose o no, pero se decidió ir por la implementación de context
+- SIGTERM sirve para avisar que se intentará cerrar el programa y la idea es hacerlo lo mas rapido posible, mientras que SIGKILL directamente no espera y hace el cierre a la fuerza
+- Se puede simular una señal de SIGTERM (más allá de los tests) mediante el pasaje de un archivo muy grande al cliente (por ejemplo `input-1.csv`) ejecutando `make up` seguido de `make logs` y luego en otra consola ejecutar `make down`. Se podrá ver una salida similar a la siguiente, registrandose correctamente que se hizo una salida _grateful_
 
 ```
+...
 client_0  | 2026/09/08 21:14:45 INFO action=sigterm-received result=in-progress
 client_1  | 2026/09/08 21:14:45 INFO action=sigterm-received result=in-progress
-client_1  | 2026/09/08 21:14:45 INFO action=receive-message result=in-progress AAAAAAAAAAAAAAAA=4 payload-size=0
-client_1  | 2026/09/08 21:14:45 INFO action=receive-ack result=success !BADKEY="ack recibido del servidor"
 client_1  | 2026/09/08 21:14:45 INFO action=send-bets result=in-progress info="shutdown solicitado, se corta el envío"
 server    | Exception in thread Thread-2 (_handle_client):
 client_1  | 2026/09/08 21:14:45 INFO action=process-input-file-from-server result=success info="cierre graceful por SIGTERM"
 server    | Traceback (most recent call last):
-server    |   File "/usr/local/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
-server    |     self._context.run(self.run)
-server    |     ~~~~~~~~~~~~~~~~~^^^^^^^^^^
-server    |   File "/usr/local/lib/python3.14/threading.py", line 1024, in run
-server    |     self._target(*self._args, **self._kwargs)
-server    |     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-server    |   File "/src/server/server.py", line 68, in _handle_client
-server    |     raise e
-server    |   File "/src/server/server.py", line 59, in _handle_client
-server    |     agency_id = self._receive_bets(client_socket)
-server    |   File "/src/server/server.py", line 77, in _receive_bets
-server    |     message_type, payload = receive_message(client_socket)
-server    |                             ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
-server    |   File "/src/protocol/protocol.py", line 18, in receive_message
-server    |     header = safe_socket.recv_all(socket, 5)
-server    |   File "/src/safe_socket/safe_socket.py", line 12, in recv_all
-server    |     raise RuntimeError("socket connection broken")
-server    | RuntimeError: socket connection broken
+...
 client_1 exited with code 0
 client_0  | 2026/09/08 21:14:49 INFO action=process-input-file-from-server result=success info="cierre graceful por SIGTERM"
 client_0 exited with code 0
