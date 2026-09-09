@@ -42,8 +42,8 @@ func loadConfig() (client.ClientConfig, error) {
 	if err != nil {
 		return client.ClientConfig{}, errors.New("BATCH_SIZE environment variable must be a valid integer")
 	}
-	if batchSize == 0 {
-		return client.ClientConfig{}, errors.New("BATCH_SIZE environment variable cannot be zero")
+	if batchSize <= 0 {
+		return client.ClientConfig{}, errors.New("BATCH_SIZE environment variable must be positive")
 	}
 
 	return client.ClientConfig{

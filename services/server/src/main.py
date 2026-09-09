@@ -8,6 +8,9 @@ SERVER_HOST = os.environ["SERVER_HOST"]
 SERVER_PORT = int(os.environ["SERVER_PORT"])
 AGENCY_QUORUM_MIN = int(os.environ["AGENCY_QUORUM_MIN"])
 
+if AGENCY_QUORUM_MIN <= 0:
+    raise ValueError("AGENCY_QUORUM_MIN must be positive")
+
 
 def main():
     logger.init()
