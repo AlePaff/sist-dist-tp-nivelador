@@ -14,7 +14,9 @@ class Server:
         self.agency_quorum_min = agency_quorum_min
         # crea el directorio donde se guardaran los archivos de apuestas de cada cliente
         os.makedirs("/data", exist_ok=True)
-        self.lotteries = {}
+        with open("/data/bets.csv", "w") as f:
+            f.write("")
+        self.lottery = Lottery("/data/bets.csv")
         self.finished_agencies = set()          # set para evitar contar dos veces a una agencia
         self.quorum_condition = threading.Condition()
 
@@ -89,13 +91,7 @@ class Server:
                 if agency_id is None:
                     agency_id = betsBatch[0].agency_id
 
-                if agency_id not in self.lotteries:
-                    # durante la inicialización deja el archivo vacio
-                    with open(f"/data/bets_{agency_id}.csv", "w") as f:
-                        f.write("")
-                    self.lotteries[agency_id] = Lottery(f"/data/bets_{agency_id}.csv")
-
-                self.lotteries[agency_id].store_bets(betsBatch)
+                self.lottery.store_bets(betsBatch)
 
                 # enviar mensaje ack de que se recibio el lote correctamente
                 send_message(client_socket, MESSAGE_TYPE_ACK, b"")
@@ -116,13 +112,13 @@ class Server:
         return agency_id
 
     def _calculate_winners(self, agency_id):
-        bets = list(self.lotteries[agency_id].load_bets())       # aca se consume el iterador
+        bets = list(self.lottery.load_bets())       # aca se consume el iterador
         print("Cant apuestas recibidas:", len(bets))
         winners = []
 
         for bet in bets:
             print(f"Evaluando apuesta: {bet}")
-            if self.lotteries[agency_id].has_won(bet):
+            if bet.agency_id == agency_id and self.lottery.has_won(bet):
                 winners.append(bet)
 
         print(f"Ganadores: {winners} de la agencia {agency_id}")
