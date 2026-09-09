@@ -19,6 +19,7 @@ class Server:
         self.lottery = Lottery("/data/bets.csv")
         self.finished_agencies = set()          # set para evitar contar dos veces a una agencia
         self.quorum_condition = threading.Condition()
+        self.lottery_lock = threading.Lock()
 
         # manejo de SIGTERM
         self._shutdown_event = threading.Event()        # "evento" Shutdown
@@ -91,7 +92,8 @@ class Server:
                 if agency_id is None:
                     agency_id = betsBatch[0].agency_id
 
-                self.lottery.store_bets(betsBatch)
+                with self.lottery_lock:
+                    self.lottery.store_bets(betsBatch)
 
                 # enviar mensaje ack de que se recibio el lote correctamente
                 send_message(client_socket, MESSAGE_TYPE_ACK, b"")
@@ -112,7 +114,9 @@ class Server:
         return agency_id
 
     def _calculate_winners(self, agency_id):
-        bets = list(self.lottery.load_bets())       # aca se consume el iterador
+        with self.lottery_lock:
+            bets = list(self.lottery.load_bets())       # aca se consume el iterador
+            
         print("Cant apuestas recibidas:", len(bets))
         winners = []
 
