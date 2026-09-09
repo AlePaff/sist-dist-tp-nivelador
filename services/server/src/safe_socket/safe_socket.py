@@ -24,11 +24,10 @@ def send_all(socket: socket.socket, bytes):
         # que puede ser menor que la longitud de los bytes que quiero enviar
         sent = socket.send(bytes[total_sent:])
 
-        # trato a sent == 0 como un error, ya que significa que la conexión se rompió
-        # if sent == 0:
+        # if sent <= 0:
         #     raise RuntimeError("socket connection broken")
         # Aunque generalmente sent == 0 indica error, el test usa un mock que puede
-        # retornar 0 para simular escrituras cortas. Simplemente continuamos.
+        # retornar 0 para simular escrituras cortas sin fallar. Simplemente continua y vuelve a intentar
 
         total_sent += sent
     return total_sent

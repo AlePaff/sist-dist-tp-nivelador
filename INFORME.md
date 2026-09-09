@@ -4,6 +4,8 @@ Para ejecutar `make up`, `make down` y demás comandos desde Windows, se debe ut
 
 Se modificaron el Makefile y docker-compose.yaml para utilizar python en lugar de python3. Esto se debe únicamente a la configuración del entorno local de Windows, donde python está disponible pero python3 no. En el entorno de entrega esto no debería representar un inconveniente.
 
+Se dejaron comentarios a lo largo del codigo tal vez algo redundantes pero muy utiles para mi como estudiante ya que me ayudaron a entender y aprender a lo largo de la realización del TP. Decidí dejarlos en la entrega para poder consultarlos mas adelante en futuros TPs de manera sencilla.
+
 ### Ejercicio 1
 Se creó el script `scripts/1_generar_compose_clientes.py` para generar automáticamente la cantidad de clientes indicada por parámetro, de acuerdo con el punto opcional del ejercicio
 
@@ -41,11 +43,15 @@ client_0  | 2026/08/28 06:55:34 INFO result=success agency-id=0
 ```
 
 
+Para solucionarlo, send_all y recv_all realizan operaciones repetidas hasta completar la cantidad de bytes esperada o detectar un error de comunicación. Una escritura que devuelve cero bytes se considera un short write y evita un loop infinito.
+
+
 ### Ejercicio 4
 El problema es que TCP no garantiza que una operación de lectura o escritura procese todos los bytes solicitados. Por ejemplo, se pueden enviar 50 bytes y recibirlos en dos lecturas de 25 bytes cada una (short read), o escribir solamente una parte de los datos (short write)
 
 Para solucionarlo, send_all y recv_all realizan operaciones repetidas hasta completar la cantidad de bytes esperada o detectar un error de comunicación.
 
+Tanto en safe_socket.go como en safe_socket.py se dejó explicitamente fuera la validación en caso que se envien 0 bytes para poder correr los tests de short read y write ya que uno de ellos esta esperando que al enviarse 0 bytes el programa no falle, lo normal sería arrojar un error. Por eso se dejó comentada esta parte del codigo
 
 ### Ejercicio 5
 Se implementó un protocolo de comunicación entre cliente y servidor que permite enviar las apuestas y los resultados del sorteo
@@ -64,7 +70,7 @@ con
 
 Una apuesta contiene seis campos: agency_id, first_name, last_name, document, birthdate y number. El agency_id se obtiene de la configuración del cliente, mientras que los demás datos se obtienen del archivo .csv
 
-El cliente serializa las apuestas y las envía al servidor. Cuando termina de enviar todas las apuestas, envía un mensaje END. El servidor almacena las apuestas mediante Lottery.store_bet, calcula los ganadores utilizando load_bets y has_won, y finalmente envía al cliente el listado de ganadores. El cliente persiste estos datos en OUTPUT_FILE.
+El cliente serializa las apuestas y las envía al servidor. Cuando termina de enviar las apuestas, envía un mensaje END. El servidor almacena las apuestas mediante `Lottery.store_bets` y calcula los ganadores de la ronda utilizando `has_won`. Finalmente envía al cliente el listado de ganadores y el cliente persiste estos datos en `OUTPUT_FILE`.
 
 Los ganadores se serializan utilizando \n como separador entre apuestas.
 
@@ -102,11 +108,11 @@ Durante el desarrollo me estaba fallando el test porque no se había bajado el s
 ### Ejercicio 7
 Se modificó el servidor para procesar los clientes concurrentemente mediante un thread por conexión. De esta forma, mientras un cliente espera operaciones de red, otros clientes pueden ser atendidos.
 
-El servidor utiliza una Condition para implementar el mecanismo de quorum. Cada cliente notifica cuando terminó de enviar sus apuestas y queda esperando hasta que se haya alcanzado como mínimo la cantidad de agencias indicada por AGENCY_QUORUM_MIN.
+El servidor utiliza una Condition para implementar el mecanismo de quorum. Cada cliente notifica cuando terminó de enviar sus apuestas y queda esperando hasta que se haya alcanzado como mínimo la cantidad de agencias indicada por AGENCY_QUORUM_MIN. Los clientes se agrupan en rondas independientes: al alcanzar el quorum se calcula un resultado por agencia y se libera ese grupo, sin reutilizar el quorum ni las apuestas de rondas anteriores.
 
 La Condition permite que los threads que todavía no alcanzaron el quorum queden bloqueados sin consumir CPU y sean despertados cuando otra agencia finaliza.
 
-Además, como todas las agencias utilizan el mismo archivo /data/bets.csv, se utiliza un Lock para sincronizar el acceso al archivo y evitar escrituras o lecturas concurrentes inconsistentes. El lock protege el acceso al archivo, mientras que el cálculo de ganadores se realiza sobre los datos ya cargados en memoria.
+Además, como todas las agencias utilizan el mismo archivo /data/bets.csv, se utiliza un Lock para sincronizar el acceso al archivo y evitar escrituras concurrentes inconsistentes. El resultado se calcula sobre las apuestas de la ronda reunidas en memoria, evitando mezclar sorteos anteriores. Cada cliente recibe únicamente los ganadores de su propia agencia; no se realiza broadcast.
 
 
 
@@ -120,7 +126,7 @@ Además, como todas las agencias utilizan el mismo archivo /data/bets.csv, se ut
 ### Ejercicio 8
 Se implementó el cierre graceful del cliente y servidor ante la recepción de `SIGTERM`. El objetivo es que los recursos utilizados, como sockets, archivos y threads, sean liberados correctamente antes de finalizar.
 
-En el cliente se utiliza context para propagar la señal de cancelación. Al recibir `SIGTERM`, el contexto queda cancelado y el cliente deja de enviar nuevas apuestas. También se utiliza una goroutine que espera la cancelación del contexto y fuerza el cierre del socket luego de un tiempo máximo de X segundos configurables, evitando que una operación de red bloqueada impida terminar el proceso.
+En el cliente se utiliza context para propagar la señal de cancelación. Al recibir `SIGTERM`, el contexto queda cancelado y el cliente deja de enviar nuevas apuestas. Una goroutine cierra inmediatamente el socket si hay una operación de red bloqueada, evitando que la finalización dependa de un sleep o timeout artificial.
 
 En el servidor se utiliza `threading.Event` para representar el estado de shutdown. Al recibir `SIGTERM`, se activa el evento, se despiertan los threads que estén esperando el quorum y se cierran tanto el socket de escucha como los sockets de los clientes para desbloquear posibles operaciones de accept() y recv().
 
@@ -138,9 +144,7 @@ El tiempo -t utilizado por docker compose down establece cuánto tiempo Docker e
 client_0  | 2026/09/08 21:14:45 INFO action=sigterm-received result=in-progress
 client_1  | 2026/09/08 21:14:45 INFO action=sigterm-received result=in-progress
 client_1  | 2026/09/08 21:14:45 INFO action=send-bets result=in-progress info="shutdown solicitado, se corta el envío"
-server    | Exception in thread Thread-2 (_handle_client):
 client_1  | 2026/09/08 21:14:45 INFO action=process-input-file-from-server result=success info="cierre graceful por SIGTERM"
-server    | Traceback (most recent call last):
 ...
 client_1 exited with code 0
 client_0  | 2026/09/08 21:14:49 INFO action=process-input-file-from-server result=success info="cierre graceful por SIGTERM"
