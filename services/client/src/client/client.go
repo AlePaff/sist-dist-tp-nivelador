@@ -48,7 +48,9 @@ func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 	go func() {
 		<-ctx.Done() // con <- se congela la funcion y espera a recibir un dato del channel
 		logger.Info("sigterm-received", logger.InProgress)
-		time.AfterFunc(GRACEFUL_SHUTDOWN_TIMEOUT, func() { // espera 4 segundos antes de ejecutar la funcion anonima "func"
+		time.AfterFunc(GRACEFUL_SHUTDOWN_TIMEOUT, func() {
+			// espera 4 segundos antes de ejecutar la funcion anonima "func"
+			// aunque puede parecer redundante se deja ya que de esa forma se tiene un tiempo acotado y conocido para el cierre
 			client.conn.Close()
 		})
 	}()
@@ -210,7 +212,7 @@ func enviarBatch(client_conn net.Conn, batch []protocol.Bet) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("send-bets", logger.InProgress, "mensajito", "cliente manda batch -------")
+	logger.Info("send-bets", logger.InProgress, "mensaje", "cliente manda batch")
 
 	// espera recibir el mensaje ack
 	logger.Info("receive-ack", logger.InProgress, "ack", "espera recibir ack del servidor")
@@ -223,7 +225,7 @@ func enviarBatch(client_conn net.Conn, batch []protocol.Bet) error {
 		logger.Error("receive-ack-error", logger.Fail, "unexpected-message-type", message.Type)
 		return err
 	}
-	logger.Info("receive-ack", logger.Success, "ack recibido del servidor")
+	logger.Info("receive-ack", logger.Success, "entrante: ", "ack recibido del servidor")
 
 	return nil
 }

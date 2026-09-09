@@ -62,7 +62,7 @@ func ReceiveMessage(socket io.Reader) (Message, error) {
 		return Message{}, err
 	}
 
-	logger.Info("receive-message", logger.InProgress, "AAAAAAAAAAAAAAAA", messageType, "payload-size", payloadSize)
+	logger.Info("receive-message", logger.InProgress, "tipo-mensaje", messageType, "payload-size", payloadSize)
 
 	return Message{
 		Type:    messageType,
