@@ -6,6 +6,12 @@ Se modificaron el Makefile y docker-compose.yaml para utilizar python en lugar d
 
 Se dejaron comentarios a lo largo del codigo tal vez algo redundantes pero muy utiles para mi como estudiante ya que me ayudaron a entender y aprender a lo largo de la realización del TP. Decidí dejarlos en la entrega para poder consultarlos mas adelante en futuros TPs de manera sencilla.
 
+### Aclaración importante
+Si se está en Windows el test de output files falla ya que se encuentra un error de encoding debido a caracteres no reconocidos, no es un problema de UTF-8 sino como uno de los tests es interpretado en el Python de Windows (especificamente con cp1252). Un registro que ocasiona problemas es el siguiente que tiene el caracter `Á`
+`Brisa Magalí,Álvarez,27227942,2001-10-06,9436`
+Por ello ejecutarlos como `PYTHONUTF8=1 make test`
+
+
 ### Ejercicio 1
 Se creó el script `scripts/1_generar_compose_clientes.py` para generar automáticamente la cantidad de clientes indicada por parámetro, de acuerdo con el punto opcional del ejercicio
 
