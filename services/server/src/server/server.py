@@ -90,6 +90,7 @@ class Server:
             if client_socket in self._client_sockets:
                 self._client_sockets.remove(client_socket)
 
+            
     def _receive_bets(self, client_socket):
         agency_id = None
         bets = []
@@ -99,25 +100,7 @@ class Server:
 
             if message_type == MESSAGE_TYPE_BET:
                 bets_batch = deserialize_bets_batch(payload)
-
-                if(bets_batch is None or len(bets_batch) == 0):
-                    logger.error("receive-bets", logger.LogResult.fail, "err", "Se recibio un lote de apuestas vacio, se continua")
-                    continue
-
-                print("Batch recibido:", bets_batch)
-
-                # guarda el agency_id
-                if agency_id is None:
-                    agency_id = bets_batch[0].agency_id
-                # if any(bet.agency_id != agency_id for bet in bets_batch):
-                #     raise ValueError("all bets in a connection must belong to the same agency")
-                bets.extend(bets_batch)
-
-                with self.lottery_lock:
-                    self.lottery.store_bets(bets_batch)
-
-                # enviar mensaje ack de que se recibio el lote correctamente
-                send_message(client_socket, MESSAGE_TYPE_ACK, b"")
+                agency_id = self._handle_bet_batch(bets, bets_batch, client_socket, agency_id)
 
             elif message_type == MESSAGE_TYPE_END:
                 print(f"El cliente terminó de enviar apuestas")
@@ -125,30 +108,60 @@ class Server:
                     raise ValueError("Se envio primero END. La agencia tiene que mandar al menos una apuesta")
                 participant = RoundParticipant(agency_id, bets)
                 with self.quorum_condition:
-                    self.pending_round.append(participant)      # lo agrega a la lista global de participantes de esta ronda
-                    if len(self.pending_round) >= self.agency_quorum_min:
-                        print(f"===Se alcanzó el QUORUM. en el cliente {agency_id}, len(pending_round): {len(self.pending_round)}. Demas clientes en espera")
-                        current_participants = self.pending_round
-                        self.pending_round = []     # a partir de aca cualquier cliente nuevo utiliza esta lista
-
-                        # para cada participante calcula sus ganadores en la ronda actual
-                        all_bets_from_all_agencies = [bet for item in current_participants for bet in item.bets]
-                        for item in current_participants:
-                            item.winners = [
-                                bet for bet in all_bets_from_all_agencies
-                                if bet.agency_id == item.agency_id and self.lottery.has_won(bet)
-                            ]
-
-                        # se vacia cuando se alcanza el quorum
-                        # las apuestas estan guardadas en memoria (all_bets_from_all_agencies) por lo tanto no pasa nada si se borra en disco
-                        with self.lottery_lock:
-                            print(f"El cliente {agency_id} vacia el bets.csv")
-                            with open(self.lottery.storage_path, "w") as f:
-                                f.write("")    # truncar el archivo
-
-                    self.quorum_condition.notify_all()
-                    print(f"arranca nuevo quorum: self.pending_round.len() {len(self.pending_round)}")
+                    self._register_participant(participant)
                 return participant
+
+            else:
+                raise KeyError("Tipo de mensaje no identificado")
+
+    def _handle_bet_batch(self, bets, bets_batch, client_socket, agency_id):
+        if(bets_batch is None or len(bets_batch) == 0):
+            logger.error("receive-bets", logger.LogResult.fail, "err", "Se recibio un lote de apuestas vacio, se continua")
+            return agency_id
+
+        print("Batch recibido:", bets_batch)
+
+        # guarda el agency_id
+        if agency_id is None:
+            agency_id = bets_batch[0].agency_id
+        if any(bet.agency_id != agency_id for bet in bets_batch):
+            raise ValueError("Todas las apuestas deben pertenecer a la misma agencia")
+        bets.extend(bets_batch)
+
+        with self.lottery_lock:
+            self.lottery.store_bets(bets_batch)
+
+        # enviar mensaje ack de que se recibio el lote correctamente
+        send_message(client_socket, MESSAGE_TYPE_ACK, b"")
+        return agency_id
+
+    def _register_participant(self, participant):
+        self.pending_round.append(participant)      # lo agrega a la lista global de participantes de esta ronda
+        if len(self.pending_round) >= self.agency_quorum_min:
+            print(f"===Se alcanzó el QUORUM. en el cliente {participant.agency_id}, len(pending_round): {len(self.pending_round)}. Demas clientes en espera")
+            current_participants = self.pending_round
+            self.pending_round = []     # a partir de aca cualquier cliente nuevo utiliza esta lista
+
+            # para cada participante calcula sus ganadores en la ronda actual
+            self._compute_winners_per_round(current_participants)
+
+            # se vacia cuando se alcanza el quorum
+            # las apuestas estan guardadas en memoria (all_bets_from_all_agencies) por lo tanto no pasa nada si se borra en disco
+            with self.lottery_lock:
+                print(f"El cliente {participant.agency_id} vacia el bets.csv")
+                with open(self.lottery.storage_path, "w") as f:
+                    f.write("")    # truncar el archivo
+
+        self.quorum_condition.notify_all()
+        print(f"arranca nuevo quorum: self.pending_round.len() {len(self.pending_round)}")
+                
+    def _compute_winners_per_round(self, current_participants):
+        all_bets_from_all_agencies = [bet for item in current_participants for bet in item.bets]
+        for item in current_participants:
+            item.winners = [
+                bet for bet in all_bets_from_all_agencies
+                if bet.agency_id == item.agency_id and self.lottery.has_won(bet)
+            ]
 
     def _send_winners(self, winners, client_socket):
         # Serializamos y enviamos los ganadores.

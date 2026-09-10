@@ -47,7 +47,7 @@ func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 	// mientras hay una operación de red bloqueada, para acotar el tiempo de cierre
 	go func() {
 		<-ctx.Done() // con <- se congela la funcion y espera a recibir un dato del channel
-		logger.Info("sigterm-received", logger.InProgress)
+		logger.Info("sigterm-received-or-end-of-program", logger.InProgress)
 		time.AfterFunc(GRACEFUL_SHUTDOWN_TIMEOUT, func() {
 			// espera 4 segundos antes de ejecutar la funcion anonima "func"
 			// aunque puede parecer redundante se deja ya que de esa forma se tiene un tiempo acotado y conocido para el cierre
