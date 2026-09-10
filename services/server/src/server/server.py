@@ -7,6 +7,13 @@ from protocol.protocol import MESSAGE_TYPE_BET, MESSAGE_TYPE_END, MESSAGE_TYPE_W
 from lottery.lottery import Lottery
 
 
+class RoundParticipant:
+    def __init__(self, agency_id, bets):
+        self.agency_id = agency_id
+        self.bets = bets
+        self.winners = None
+
+
 class Server:
     def __init__(self, server_host: str, server_port: int, agency_quorum_min: int) -> None:
         self.server_host = server_host
@@ -17,8 +24,8 @@ class Server:
         with open("/data/bets.csv", "w") as f:
             f.write("")
         self.lottery = Lottery("/data/bets.csv")
-        self.finished_agencies = set()          # set para evitar contar dos veces a una agencia
         self.quorum_condition = threading.Condition()
+        self.pending_round = []
         self.lottery_lock = threading.Lock()
 
         # manejo de SIGTERM
@@ -34,6 +41,7 @@ class Server:
 
         # despierta threads que puedan estar esperando el quorum para que hagan shutdown
         with self.quorum_condition:
+            self.pending_round = []
             self.quorum_condition.notify_all()
 
         # cierra el socket de escucha para desbloquear accept()
@@ -59,22 +67,32 @@ class Server:
             if self._shutdown_event.is_set():
                 return
 
-            agency_id = self._receive_bets(client_socket)
-            if self._shutdown_event.is_set() or agency_id is None:
+            participant = self._receive_bets(client_socket)
+            if self._shutdown_event.is_set() or participant is None:
                 return
-            print(f"debug: termino recibir apuestas de {agency_id}, calculando ganadores...")
-            winners = self._calculate_winners(agency_id)
-            self._send_winners(winners, client_socket)
+            with self.quorum_condition:
+                while participant.winners is None and not self._shutdown_event.is_set():
+                    self.quorum_condition.wait()
+                if not self._shutdown_event.is_set():
+                    winners = participant.winners
+                else:
+                    winners = None
+            # calcula los ganadores
+            if winners is not None:
+                self._send_winners(winners, client_socket)
     
         except Exception as e:
             if not self._shutdown_event.is_set():
-                raise e
+                logger.error("handle-client", logger.LogResult.fail, "err", e)
 
         finally:
             client_socket.close()
+            if client_socket in self._client_sockets:
+                self._client_sockets.remove(client_socket)
 
     def _receive_bets(self, client_socket):
         agency_id = None
+        bets = []
 
         while True:
             message_type, payload = receive_message(client_socket)
@@ -91,6 +109,9 @@ class Server:
                 # guarda el agency_id
                 if agency_id is None:
                     agency_id = bets_batch[0].agency_id
+                # if any(bet.agency_id != agency_id for bet in bets_batch):
+                #     raise ValueError("all bets in a connection must belong to the same agency")
+                bets.extend(bets_batch)
 
                 with self.lottery_lock:
                     self.lottery.store_bets(bets_batch)
@@ -99,34 +120,35 @@ class Server:
                 send_message(client_socket, MESSAGE_TYPE_ACK, b"")
 
             elif message_type == MESSAGE_TYPE_END:
-                print(f"El cliente terminó de enviar apuestas. Se guardan las apuestas")
-                with self.quorum_condition:         # toma el lock, al salir de aqui se libera
-                    self.finished_agencies.add(agency_id)       # es para que solo uno a la vez pueda agregarse en finished_agencies
+                print(f"El cliente terminó de enviar apuestas")
+                if agency_id is None:
+                    raise ValueError("Se envio primero END. La agencia tiene que mandar al menos una apuesta")
+                participant = RoundParticipant(agency_id, bets)
+                with self.quorum_condition:
+                    self.pending_round.append(participant)      # lo agrega a la lista global de participantes de esta ronda
+                    if len(self.pending_round) >= self.agency_quorum_min:
+                        print(f"===Se alcanzó el QUORUM. en el cliente {agency_id}, len(pending_round): {len(self.pending_round)}. Demas clientes en espera")
+                        current_participants = self.pending_round
+                        self.pending_round = []     # a partir de aca cualquier cliente nuevo utiliza esta lista
 
-                    self.quorum_condition.notify_all()      # despierta a los threads que estan esperando el quorum
+                        # para cada participante calcula sus ganadores en la ronda actual
+                        all_bets_from_all_agencies = [bet for item in current_participants for bet in item.bets]
+                        for item in current_participants:
+                            item.winners = [
+                                bet for bet in all_bets_from_all_agencies
+                                if bet.agency_id == item.agency_id and self.lottery.has_won(bet)
+                            ]
 
-                    # si aún no se llegó al quorum, pone a dormir al hilo actual. se asegura tambien de que no este el evento de shutdown activado
-                    while len(self.finished_agencies) < self.agency_quorum_min and not self._shutdown_event.is_set():         # solo saldra del ciclo dormir->ser despertado->comprobar condicion->dormir, cuando se cumpla la condición
-                        self.quorum_condition.wait()        #aqui tambien se libera el lock del "with"
-                if self._shutdown_event.is_set():
-                    return None
-                break
-        return agency_id
+                        # se vacia cuando se alcanza el quorum
+                        # las apuestas estan guardadas en memoria (all_bets_from_all_agencies) por lo tanto no pasa nada si se borra en disco
+                        with self.lottery_lock:
+                            print(f"El cliente {agency_id} vacia el bets.csv")
+                            with open(self.lottery.storage_path, "w") as f:
+                                f.write("")    # truncar el archivo
 
-    def _calculate_winners(self, agency_id):
-        with self.lottery_lock:
-            bets = list(self.lottery.load_bets())       # aca se consume el iterador
-            
-        print("Cant apuestas recibidas:", len(bets))
-        winners = []
-
-        for bet in bets:
-            print(f"Evaluando apuesta: {bet}")
-            if bet.agency_id == agency_id and self.lottery.has_won(bet):
-                winners.append(bet)
-
-        print(f"Ganadores: {winners} de la agencia {agency_id}")
-        return winners
+                    self.quorum_condition.notify_all()
+                    print(f"arranca nuevo quorum: self.pending_round.len() {len(self.pending_round)}")
+                return participant
 
     def _send_winners(self, winners, client_socket):
         # Serializamos y enviamos los ganadores.

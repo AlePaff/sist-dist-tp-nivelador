@@ -8,7 +8,7 @@ services:
       - PYTHONUNBUFFERED=1
       - SERVER_HOST=server
       - SERVER_PORT=5678
-      - AGENCY_QUORUM_MIN=2
+      - AGENCY_QUORUM_MIN=3
     ports: 
       - "5678:5678"     # expone un puerto del contenedor al host (sintaxis: PUERTO_HOST:PUERTO_CONTENEDOR)
     volumes:
@@ -49,20 +49,26 @@ services:
       - OUTPUT_FILE=/output/output-1.csv
       - BATCH_SIZE=2
     volumes:
-      - ./input:/input      # mapea la carpeta ./input del host a la carpeta /input del contenedor (sintaxis: RUTA_HOST:RUTA_CONTENEDOR)
+      - ./input:/input
       - ./output:/output
 
-  # client_2:
-  #   build:
-  #     context: ./services/client
-  #     dockerfile: Dockerfile
-  #   container_name: client_2
-  #   depends_on:
-  #     - server
-  #   environment:
-  #     - AGENCY_ID=2
-  #     - SERVER_HOST=server
-  #     - SERVER_PORT=5678
+  client_2:
+    build:
+      context: ./services/client
+      dockerfile: Dockerfile
+    container_name: client_2
+    depends_on:
+      - server
+    environment:
+      - AGENCY_ID=2
+      - SERVER_HOST=server
+      - SERVER_PORT=5678
+      - INPUT_FILE=/input/input-2.csv
+      - OUTPUT_FILE=/output/output-2.csv
+      - BATCH_SIZE=2
+    volumes:
+      - ./input:/input
+      - ./output:/output
 
   # client_3:
   #   build:

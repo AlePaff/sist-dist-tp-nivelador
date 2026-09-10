@@ -108,19 +108,23 @@ Durante el desarrollo me estaba fallando el test porque no se había bajado el s
 ### Ejercicio 7
 Se modificó el servidor para procesar los clientes concurrentemente mediante un thread por conexión. De esta forma, mientras un cliente espera operaciones de red, otros clientes pueden ser atendidos.
 
-El servidor utiliza una Condition para implementar el mecanismo de quorum. Cada cliente notifica cuando terminó de enviar sus apuestas y queda esperando hasta que se haya alcanzado como mínimo la cantidad de agencias indicada por AGENCY_QUORUM_MIN. Los clientes se agrupan en rondas independientes: al alcanzar el quorum se calcula un resultado por agencia y se libera ese grupo, sin reutilizar el quorum ni las apuestas de rondas anteriores.
+El servidor utiliza una Condition para implementar el mecanismo de quorum. Cada cliente notifica cuando terminó de enviar sus apuestas y queda esperando hasta que se haya alcanzado como mínimo la cantidad de agencias indicada por AGENCY_QUORUM_MIN. Los clientes se agrupan en rondas independientes: al alcanzar el quorum se calcula un resultado por agencia y se libera ese grupo, sin reutilizar el quorum ni las apuestas de rondas anteriores, por este motivo tambien se borra el archivo de apuestas bets.csv
 
-La Condition permite que los threads que todavía no alcanzaron el quorum queden bloqueados sin consumir CPU y sean despertados cuando otra agencia finaliza.
+El servidor utiliza una Condition, para implementar el mecanismo de quórum, agrupa a los clientes en rondas independientes y cada agencia que termina de enviar sus apuestas se suma a la ronda en curso, y cuando la cantidad de participantes alcanza AGENCY_QUORUM_MIN, se calculan los ganadores de esa ronda y se responde a cada agencia con únicamente las apuestas ganadoras propias. Una vez cerrada la ronda, la lista de participantes pendientes se reinicia, de modo que los clientes que lleguen después inician una nueva ronda.
 
-Además, como todas las agencias utilizan el mismo archivo /data/bets.csv, se utiliza un Lock para sincronizar el acceso al archivo y evitar escrituras concurrentes inconsistentes. El resultado se calcula sobre las apuestas de la ronda reunidas en memoria, evitando mezclar sorteos anteriores. Cada cliente recibe únicamente los ganadores de su propia agencia; no se realiza broadcast.
-
+Esta lógica resuelve correctamente el caso base (cantidad de clientes múltiplo del quórum, segun foro) y permite múltiples rondas consecutivas sin reiniciar el servidor. Sin embargo, no contempla el caso en que la cantidad de clientes no sea múltiplo del quórum, por ejemplo 3 clientes con AGENCY_QUORUM_MIN=2 como se detalla a continuación con un ejemplo:
+- Los primeros 2 clientes cierran la ronda 1 y reciben su respuesta.
+- El tercer cliente queda esperando en una nueva ronda que nunca alcanza el quórum, porque no hay más clientes que se conecten.
+- El servidor no cierra esa ronda incompleta por sí solo, ya que no tiene forma de saber si va a llegar un cuarto cliente o no. Por lo tanto se queda esperando
+- Se decidió no implementar un cierre automático por timeout para la ronda incompleta. Solo cuando se manda el SIGTERM del ejercicio 8
+- Agregar un timeout introduciría una espera artificial que, ante la llegada de SIGTERM, iría en contra de la recomendación de la cátedra de "actuar eficientemente y terminar lo antes posible"
 
 
 ##### Observaciones
 - Hasta ahora se aceptaba una conexión y el server quedaba bloqueado, no permitiendo multiples clientes realmente, solo atendiendo uno por vez. En los logs se podía ver que primero estan los logs de client_0, se hace todo el procesamiento, se envian los ganadores y luego se hacía para client_1. Aunque puede ser dificil de rastrear ya que los logs pueden imprimirse en otro orden
 - El threading no escala bien en CPython (interprete de python) debido al GIL. CPython si tiene multi threading, es GIL quien lo frena. Es muy útil para operaciones I/O-bound (como esperar red, archivos, sockets, etc). De lo contrario para operaciones pesadas es lo mismo que tener un hilo y no existe paralelismo real. 
 - Otra forma de implementar la solución era guardar un diccionario de Lottery de forma que cada agencia tenga un archivo de apuestas separado, pero se evita esto ya que el objetivo es intentar sincronizar el acceso y simular problemas concurrencia, que mediante esta alternativa no ocurrirían o sería mas dificil que ocurran. 
-
+- No se especificaba sobre el uso de load_bets para este ejercicio (ni en los foros), por lo tanto opté por calcular las apuestas desde memoria en lugar de disco. 
 
 
 ### Ejercicio 8
