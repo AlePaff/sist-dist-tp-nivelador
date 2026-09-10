@@ -80,20 +80,20 @@ class Server:
             message_type, payload = receive_message(client_socket)
 
             if message_type == MESSAGE_TYPE_BET:
-                betsBatch = deserialize_bets_batch(payload)
+                bets_batch = deserialize_bets_batch(payload)
 
-                if(betsBatch is None or len(betsBatch) == 0):
+                if(bets_batch is None or len(bets_batch) == 0):
                     logger.error("receive-bets", logger.LogResult.fail, "err", "Se recibio un lote de apuestas vacio, se continua")
                     continue
 
-                print("Batch recibido:", betsBatch)
+                print("Batch recibido:", bets_batch)
 
                 # guarda el agency_id
                 if agency_id is None:
-                    agency_id = betsBatch[0].agency_id
+                    agency_id = bets_batch[0].agency_id
 
                 with self.lottery_lock:
-                    self.lottery.store_bets(betsBatch)
+                    self.lottery.store_bets(bets_batch)
 
                 # enviar mensaje ack de que se recibio el lote correctamente
                 send_message(client_socket, MESSAGE_TYPE_ACK, b"")
